@@ -19,6 +19,7 @@ export class GameScene extends Phaser.Scene {
   private ui!: UIManager;
   private grid!: Phaser.GameObjects.Graphics;
   private gameEnded = false;
+  private bossKilled = false;
 
   constructor() { super('GameScene'); }
 
@@ -47,9 +48,7 @@ export class GameScene extends Phaser.Scene {
     this.player.update(time);
     this.enemies.getChildren().forEach((e) => (e as Enemy).fsm.update());
     this.waves.boss?.update(time);
-    if (this.waves.boss?.active) this.physics.world.overlap(this.skills.projectiles, this.waves.boss, (p, b) => {
-      (b as Boss).receiveDamage((p as Projectile).damage); p.destroy(); if (!(b as Boss).active) this.onBossKilled();
-    });
+    if (this.waves.boss?.active) this.physics.world.overlap(this.skills.projectiles, this.waves.boss, (p, b) => this.projectileHitBoss(p as Projectile, b as Boss));
     if (this.waves.boss?.active) this.physics.world.overlap(this.player, this.waves.boss, () => this.player.damage(this.waves.boss!.contactDamage));
     this.skills.update(time, this.enemies);
     this.waves.update(delta, time);
@@ -58,9 +57,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private projectileHit(projectile: Projectile, enemy: Enemy) {
+    if (!projectile.active || !enemy.active) return;
     enemy.receiveDamage(projectile.damage);
     projectile.pierce -= 1;
     if (projectile.pierce <= 0) projectile.destroy();
+  }
+
+  private projectileHitBoss(projectile: Projectile, boss: Boss) {
+    if (!projectile.active || !boss.active || this.bossKilled) return;
+    boss.receiveDamage(projectile.damage);
+    projectile.destroy();
+    if (!boss.active) this.onBossKilled();
   }
 
   private onEnemyKilled(enemy: Enemy) {
@@ -71,6 +78,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onBossKilled() {
+    if (this.bossKilled) return;
+    this.bossKilled = true;
     this.exp.add(500);
     this.endGame();
   }

@@ -3,7 +3,7 @@ import { startGame } from './game/main';
 import './styles.css';
 
 export default function App() {
-  const gameRef = useRef<Phaser.Game | null>(null);
+  const gameRef = useRef<ReturnType<typeof startGame> | null>(null);
 
   useEffect(() => {
     if (!gameRef.current) gameRef.current = startGame('game-root');

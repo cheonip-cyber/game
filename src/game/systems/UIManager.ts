@@ -4,6 +4,8 @@ import { ExpManager } from './ExpManager';
 import { SkillManager } from './SkillManager';
 
 const BURGUNDY = 0x800020;
+const CARD_TITLES = ['Skill Boost', 'Body Reset', 'Mind Focus'];
+
 export class UIManager {
   private hpBar!: Phaser.GameObjects.Rectangle;
   private expBar!: Phaser.GameObjects.Rectangle;
@@ -11,7 +13,11 @@ export class UIManager {
   private levelText!: Phaser.GameObjects.Text;
   private dashText!: Phaser.GameObjects.Text;
   private skillTexts: Phaser.GameObjects.Text[] = [];
-  constructor(private scene: Phaser.Scene, private player: Player, private exp: ExpManager, private skills: SkillManager) { this.create(); }
+
+  constructor(private scene: Phaser.Scene, private player: Player, private exp: ExpManager, private skills: SkillManager) {
+    this.create();
+  }
+
   update(elapsedMs: number, time: number) {
     this.hpBar.width = 220 * (this.player.hp / this.player.maxHp);
     this.expBar.width = this.scene.scale.width * (this.exp.exp / this.exp.requiredExp);
@@ -20,33 +26,47 @@ export class UIManager {
     this.levelText.setText(`LV ${this.exp.level}`);
     const cd = this.player.getDashCooldownRatio(time);
     this.dashText.setText(cd > 0 ? `DASH ${(cd * 3).toFixed(1)}s` : 'DASH READY');
-    this.skillTexts.forEach((txt, i) => txt.setText(this.skills.skills[i]?.name.slice(0, 6) ?? '-'));
+    this.skillTexts.forEach((txt, i) => txt.setText(this.skills.skills[i]?.name.slice(0, 12) ?? '-'));
   }
+
   showLevelUp(onPick: () => void) {
     this.scene.physics.world.pause();
-    const w = this.scene.scale.width, h = this.scene.scale.height;
+    const w = this.scene.scale.width;
+    const h = this.scene.scale.height;
     const overlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0xffffff, 0.78).setScrollFactor(0).setDepth(1000);
     const title = this.scene.add.text(w / 2, h / 2 - 150, 'LEVEL UP', { fontSize: '24px', fontStyle: 'bold', color: '#800020' }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
     const cards: Phaser.GameObjects.Container[] = [];
+
     for (let i = 0; i < 3; i++) {
       const cx = w / 2 + (i - 1) * 210;
       const card = this.scene.add.container(cx, h / 2).setScrollFactor(0).setDepth(1001);
       const bg = this.scene.add.rectangle(0, 0, 180, 220, 0xffffff, 1).setStrokeStyle(3, BURGUNDY, 1);
-      const head = this.scene.add.text(0, -70, ['지혜 강화', '생체리듬', '선한 영향력'][i], { fontSize: '16px', fontStyle: 'bold', color: '#800020', align: 'center' }).setOrigin(0.5);
-      const body = this.scene.add.text(0, 18, '스킬 추가/강화\n공격 효율 증가', { fontSize: '13px', color: '#222222', align: 'center' }).setOrigin(0.5);
-      card.add([bg, head, body]); card.setSize(180, 220); card.setInteractive(new Phaser.Geom.Rectangle(-90, -110, 180, 220), Phaser.Geom.Rectangle.Contains);
-      card.on('pointerdown', () => { cards.forEach(c => c.destroy()); overlay.destroy(); title.destroy(); this.scene.physics.world.resume(); onPick(); });
+      const head = this.scene.add.text(0, -70, CARD_TITLES[i], { fontSize: '16px', fontStyle: 'bold', color: '#800020', align: 'center' }).setOrigin(0.5);
+      const body = this.scene.add.text(0, 18, 'Add a routine skill\nand increase attack flow.', { fontSize: '13px', color: '#222222', align: 'center' }).setOrigin(0.5);
+      card.add([bg, head, body]);
+      card.setSize(180, 220);
+      card.setInteractive(new Phaser.Geom.Rectangle(-90, -110, 180, 220), Phaser.Geom.Rectangle.Contains);
+      card.on('pointerdown', () => {
+        cards.forEach((c) => c.destroy());
+        overlay.destroy();
+        title.destroy();
+        this.scene.physics.world.resume();
+        onPick();
+      });
       cards.push(card);
     }
   }
+
   showGameOver(points: number) {
     this.scene.physics.world.pause();
-    const w = this.scene.scale.width, h = this.scene.scale.height;
+    const w = this.scene.scale.width;
+    const h = this.scene.scale.height;
     this.scene.add.rectangle(w / 2, h / 2, 420, 260, 0xffffff, 0.96).setStrokeStyle(3, BURGUNDY).setScrollFactor(0).setDepth(1200);
     this.scene.add.text(w / 2, h / 2 - 72, 'ROUTINE COMPLETE', { fontSize: '24px', fontStyle: 'bold', color: '#800020' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
     this.scene.add.text(w / 2, h / 2 - 10, `Action Points +${points}`, { fontSize: '16px', color: '#333333' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
-    this.scene.add.text(w / 2, h / 2 + 62, '새로고침 또는 재시작으로 다시 도전', { fontSize: '13px', color: '#111111' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
+    this.scene.add.text(w / 2, h / 2 + 62, 'Refresh the page or start again from the menu.', { fontSize: '13px', color: '#111111' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
   }
+
   private create() {
     const w = this.scene.scale.width;
     this.scene.add.rectangle(120, 28, 224, 18, 0xd9d9d9).setOrigin(0, 0.5).setScrollFactor(0).setDepth(900);
