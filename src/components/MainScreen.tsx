@@ -57,13 +57,11 @@ export default function MainScreen({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Select a challenge based on current date
   useEffect(() => {
     const day = new Date().getDate();
     const index = day % CHALLENGES.length;
     setChallenge(CHALLENGES[index]);
 
-    // Load local best rankings
     const stored = localStorage.getItem('school_attack_rankings');
     if (stored) {
       try {
@@ -73,7 +71,6 @@ export default function MainScreen({
         console.error(e);
       }
     } else {
-      // Mock local best if empty
       const dummyRanks: GameScore[] = [
         { nickname: '학업우수자', score: 12000, survivalTime: 600, kills: 450, level: 18, difficulty: '중', stage: '초등학교 구역', date: '2026-07-01' },
         { nickname: '선도위원장', score: 8500, survivalTime: 420, kills: 310, level: 12, difficulty: '하', stage: '초등학교 구역', date: '2026-07-03' },
@@ -83,14 +80,14 @@ export default function MainScreen({
   }, []);
 
   const handleStart = () => {
-    if (!nickname.trim()) {
+    const trimmedNickname = nickname.trim();
+    if (!trimmedNickname) {
       alert('출격용 닉네임을 입력해주세요!');
       return;
     }
-    // Save nickname
-    localStorage.setItem('school_attack_nickname', nickname.trim());
 
-    // Check if character is locked
+    localStorage.setItem('school_attack_nickname', trimmedNickname);
+
     if (totalScore < selectedChar.unlockScore) {
       alert(`이 캐릭터는 아직 잠겨있습니다! 필요한 누적 점수: ${selectedChar.unlockScore.toLocaleString()} (현재: ${totalScore.toLocaleString()})`);
       return;
@@ -100,20 +97,16 @@ export default function MainScreen({
       character: selectedChar,
       stageId: selectedStage,
       difficulty: selectedDifficulty,
-      nickname: nickname.trim(),
+      nickname: trimmedNickname,
     });
   };
 
   return (
     <div className="h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-x-hidden overflow-y-auto font-sans no-callout">
-      {/* Background Graphic Effects */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/25 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-rose-900/20 rounded-full blur-[120px] pointer-events-none" />
-
-      {/* Grid Overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
 
-      {/* Header Container */}
       <header className="relative w-full max-w-7xl mx-auto px-4 pt-6 md:pt-10 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-900 pb-6">
         <div className="text-center md:text-left">
           <div className="flex items-center justify-center md:justify-start gap-2 mb-1.5">
@@ -130,7 +123,6 @@ export default function MainScreen({
           <p className="text-xs md:text-sm text-slate-400 mt-1">학교가 불량학생들과 유해환경에 침식되었습니다. 선생님이 도착할 때까지 생존하십시오!</p>
         </div>
 
-        {/* Stats and Upgrades Menu Trigger */}
         <div className="flex flex-wrap items-center gap-3 bg-slate-900/60 p-4 border border-slate-800 rounded-xl">
           <div className="text-left">
             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">누적 획득 점수</div>
@@ -160,12 +152,9 @@ export default function MainScreen({
         </div>
       </header>
 
-      {/* Main Content Dashboard */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
-        {/* Left Area: Form Setup (Nickname, Stage, Difficulty, Challenge, Local Best) */}
         <section className="lg:col-span-4 space-y-6 flex flex-col justify-between">
           <div className="space-y-6">
-            {/* Nickname Input */}
             <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
               <label htmlFor="nickname" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <UserCheck className="w-4 h-4 text-cyan-400" />
@@ -174,15 +163,15 @@ export default function MainScreen({
               <input
                 id="nickname"
                 type="text"
-                maxLength={10}
+                maxLength={20}
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder="닉네임을 입력하세요..."
                 className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-cyan-400 px-4 py-3 rounded-xl text-slate-100 font-bold focus:outline-none transition-colors text-sm"
               />
+              <p className="text-[10px] text-slate-500 mt-2 text-right">{nickname.length}/20</p>
             </div>
 
-            {/* Stage Selector */}
             <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
               <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">구역 선택 (STAGES)</span>
               <div className="space-y-2.5">
@@ -215,7 +204,6 @@ export default function MainScreen({
               </div>
             </div>
 
-            {/* Difficulty Selector */}
             <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
               <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">난이도 설정</span>
               <div className="grid grid-cols-2 gap-2">
@@ -240,7 +228,6 @@ export default function MainScreen({
             </div>
           </div>
 
-          {/* Today's Challenge */}
           <div className="bg-slate-900/50 p-4 border border-indigo-950/40 rounded-xl bg-gradient-to-r from-indigo-950/10 to-transparent mt-4">
             <div className="flex items-center gap-2 mb-1.5">
               <Sparkles className="w-4 h-4 text-indigo-400" />
@@ -250,7 +237,6 @@ export default function MainScreen({
           </div>
         </section>
 
-        {/* Right Area: Characters Card Selection & Local Ranking Grid */}
         <section className="lg:col-span-8 space-y-6">
           <div>
             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
@@ -258,7 +244,6 @@ export default function MainScreen({
               출격할 학생 기체 (교복 카드 선택)
             </h2>
 
-            {/* Characters grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {CHARACTERS.map((char) => {
                 const isLocked = totalScore < char.unlockScore;
@@ -284,7 +269,6 @@ export default function MainScreen({
                       boxShadow: !isLocked && isSelected ? `${char.imageColor}20 0px 10px 30px` : undefined,
                     }}
                   >
-                    {/* Locked overlay info */}
                     {isLocked && (
                       <div className="absolute inset-0 bg-slate-950/80 rounded-2xl flex flex-col items-center justify-center p-4 z-20 text-center">
                         <Lock className="w-8 h-8 text-slate-500 mb-2 animate-bounce" />
@@ -296,7 +280,6 @@ export default function MainScreen({
                       </div>
                     )}
 
-                    {/* Card Upper */}
                     <div>
                       <div className="flex justify-between items-start mb-4">
                         <div>
@@ -305,7 +288,6 @@ export default function MainScreen({
                             {char.name}
                           </h3>
                         </div>
-                        {/* Decorative visual avatar representation */}
                         <div 
                           className="w-10 h-10 rounded-xl flex items-center justify-center border text-white font-extrabold text-lg select-none"
                           style={{ 
@@ -321,7 +303,6 @@ export default function MainScreen({
                       <p className="text-xs text-slate-400 leading-normal mb-5">{char.description}</p>
                     </div>
 
-                    {/* Card Stats */}
                     <div className="space-y-2 border-t border-slate-800/80 pt-4">
                       <div className="flex justify-between text-[11px]">
                         <span className="text-slate-500">기본 체력</span>
@@ -336,7 +317,6 @@ export default function MainScreen({
                         <span className="font-bold text-slate-300">x{(char.baseDamage / 10).toFixed(1)}</span>
                       </div>
 
-                      {/* Special skill description */}
                       <div className="mt-3 bg-slate-950/40 p-2.5 rounded-lg border border-slate-900">
                         <span className="text-[10px] font-bold text-yellow-500 block">특기 스킬 : {char.specialSkill}</span>
                         <span className="text-[10px] text-slate-400 leading-snug mt-0.5 block">{char.specialSkillDesc}</span>
@@ -348,9 +328,7 @@ export default function MainScreen({
             </div>
           </div>
 
-          {/* Ranking & Help Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            {/* Local Rankings */}
             <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3.5">
                 <Trophy className="w-4 h-4 text-yellow-400" />
@@ -361,7 +339,7 @@ export default function MainScreen({
                   <p className="text-xs text-slate-500 py-4 text-center">등록된 생존 명단이 없습니다.</p>
                 ) : (
                   localRankings.map((rk, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/50 border border-slate-900 text-xs">
+                    <div key={`${rk.nickname}-${rk.score}-${idx}`} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/50 border border-slate-900 text-xs">
                       <div className="flex items-center gap-2">
                         <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold ${
                           idx === 0 ? 'bg-yellow-400 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : 'bg-slate-800 text-slate-400'
@@ -380,7 +358,6 @@ export default function MainScreen({
               </div>
             </div>
 
-            {/* Instructions Help */}
             <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -403,7 +380,6 @@ export default function MainScreen({
         </section>
       </main>
 
-      {/* Deploy Combat Launch Button Container */}
       <footer className="relative w-full border-t border-slate-900 py-8 bg-slate-950/80 backdrop-blur z-20">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
           <button
@@ -419,7 +395,6 @@ export default function MainScreen({
         </div>
       </footer>
 
-      {/* Upgrades Store Popup Modal */}
       {showUpgrade && (
         <UpgradeMenu
           upgrades={upgrades}
