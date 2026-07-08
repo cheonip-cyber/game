@@ -46,7 +46,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.isInvincible) return;
     this.hp = Math.max(0, this.hp - amount);
     this.isInvincible = true;
-    this.setTintFill(0xffffff);
+    this.setTintFill();
     this.scene.time.delayedCall(100, () => this.clearTint());
     this.scene.time.delayedCall(650, () => { this.isInvincible = false; });
   }

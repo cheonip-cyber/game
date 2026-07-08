@@ -21,7 +21,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   receiveDamage(raw: number) {
     if (!this.active) return;
     this.hp -= Math.max(1, raw - 8);
-    this.setTintFill(0xffffff); this.scene.time.delayedCall(80, () => { if (this.active) this.clearTint(); });
+    this.setTintFill(); this.scene.time.delayedCall(80, () => { if (this.active) this.clearTint(); });
     if (this.hp <= 0) this.destroy();
   }
   private chargePattern(time: number) {
