@@ -13,6 +13,7 @@ export class PreloaderScene extends Phaser.Scene {
     g.fillStyle(0x5b5b5b, 1).lineStyle(2, 0x800020).fillCircle(15, 15, 13).strokeCircle(15, 15, 13).fillStyle(0x800020).fillCircle(15, 15, 5); g.generateTexture('enemyChaser', 32, 32); g.clear();
     g.fillStyle(0x800020, 1).lineStyle(3, 0xffffff).fillCircle(24, 24, 22).strokeCircle(24, 24, 22); g.generateTexture('enemyElite', 50, 50); g.clear();
     g.fillStyle(0x800020, 1).fillRoundedRect(0, 4, 22, 8, 4); g.generateTexture('projectile', 24, 16); g.clear();
+    g.fillStyle(0xffd166, 1).lineStyle(2, 0xffffff, 0.9).fillCircle(8, 8, 6).strokeCircle(8, 8, 6); g.generateTexture('expOrb', 18, 18); g.clear();
     g.fillStyle(0x800020, 0.95).lineStyle(5, 0x111111).fillCircle(50, 50, 46).strokeCircle(50, 50, 46).lineStyle(2, 0xffffff, 0.7).strokeCircle(50, 50, 30); g.generateTexture('boss', 104, 104); g.clear();
     g.fillStyle(0x800020, 1).fillCircle(8, 8, 7); g.generateTexture('bossBullet', 18, 18); g.destroy();
   }

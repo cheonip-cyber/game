@@ -8,10 +8,12 @@ import { ExpManager } from '../systems/ExpManager';
 import { UIManager } from '../systems/UIManager';
 import { DataManager } from '../systems/DataManager';
 import { Projectile } from '../entities/Projectile';
+import { ExpOrb } from '../entities/ExpOrb';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private enemies!: Phaser.Physics.Arcade.Group;
+  private expOrbs!: Phaser.Physics.Arcade.Group;
   private bossBullets!: Phaser.Physics.Arcade.Group;
   private skills!: SkillManager;
   private waves!: WaveManager;
@@ -20,6 +22,7 @@ export class GameScene extends Phaser.Scene {
   private grid!: Phaser.GameObjects.Graphics;
   private gameEnded = false;
   private bossKilled = false;
+  private choosingUpgrade = false;
 
   constructor() { super('GameScene'); }
 
@@ -30,6 +33,7 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, 0, 0);
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
     this.enemies = this.physics.add.group();
+    this.expOrbs = this.physics.add.group({ classType: ExpOrb, runChildUpdate: false });
     this.bossBullets = this.physics.add.group();
     this.exp = new ExpManager();
     this.skills = new SkillManager(this, this.player);
@@ -37,6 +41,7 @@ export class GameScene extends Phaser.Scene {
     this.ui = new UIManager(this, this.player, this.exp, this.skills);
 
     this.physics.add.overlap(this.skills.projectiles, this.enemies, (p, e) => this.projectileHit(p as Projectile, e as Enemy));
+    this.physics.add.overlap(this.player, this.expOrbs, (_, orb) => this.collectExpOrb(orb as ExpOrb));
     this.physics.add.overlap(this.player, this.enemies, (_, e) => this.player.damage((e as Enemy).contactDamage));
     this.physics.add.overlap(this.player, this.bossBullets, (_, b) => { this.player.damage(15); (b as Phaser.GameObjects.GameObject).destroy(); });
     this.events.on('enemy-died', (enemy: Enemy) => this.onEnemyKilled(enemy));
@@ -45,7 +50,9 @@ export class GameScene extends Phaser.Scene {
   update(time: number, delta: number) {
     if (this.gameEnded) return;
     this.drawInfiniteGrid();
+    if (this.choosingUpgrade) return;
     this.player.update(time);
+    this.expOrbs.getChildren().forEach((orb) => (orb as ExpOrb).update(this.player));
     this.enemies.getChildren().forEach((e) => (e as Enemy).fsm.update());
     this.waves.boss?.update(time);
     if (this.waves.boss?.active) this.physics.world.overlap(this.skills.projectiles, this.waves.boss, (p, b) => this.projectileHitBoss(p as Projectile, b as Boss));
@@ -59,6 +66,8 @@ export class GameScene extends Phaser.Scene {
   private projectileHit(projectile: Projectile, enemy: Enemy) {
     if (!projectile.active || !enemy.active) return;
     enemy.receiveDamage(projectile.damage);
+    this.createHitText(enemy.x, enemy.y, Math.round(projectile.damage));
+    this.cameras.main.shake(35, 0.0018);
     projectile.pierce -= 1;
     if (projectile.pierce <= 0) projectile.destroy();
   }
@@ -66,14 +75,29 @@ export class GameScene extends Phaser.Scene {
   private projectileHitBoss(projectile: Projectile, boss: Boss) {
     if (!projectile.active || !boss.active || this.bossKilled) return;
     boss.receiveDamage(projectile.damage);
+    this.createHitText(boss.x, boss.y - 30, Math.round(projectile.damage));
     projectile.destroy();
     if (!boss.active) this.onBossKilled();
   }
 
   private onEnemyKilled(enemy: Enemy) {
-    if (this.exp.add(enemy.exp)) {
+    const orb = new ExpOrb(this, enemy.x, enemy.y, enemy.exp);
+    this.expOrbs.add(orb);
+  }
+
+  private collectExpOrb(orb: ExpOrb) {
+    if (!orb.active) return;
+    const value = orb.value;
+    orb.destroy();
+    this.createExpSpark();
+    if (this.exp.add(value)) {
       this.createLevelAura();
-      this.ui.showLevelUp(() => this.skills.chooseUpgrade());
+      const choices = this.skills.getUpgradeChoices();
+      this.choosingUpgrade = true;
+      this.ui.showLevelUp(choices, (choice) => {
+        this.skills.applyUpgrade(choice);
+        this.choosingUpgrade = false;
+      });
     }
   }
 
@@ -89,7 +113,17 @@ export class GameScene extends Phaser.Scene {
     this.gameEnded = true;
     const points = Math.max(1, Math.floor(this.waves.elapsedMs / 10000) + this.exp.level * 3);
     DataManager.addActionPoints(points, this.waves.elapsedMs);
-    this.ui.showGameOver(points);
+    this.ui.showGameOver(points, this.waves.elapsedMs);
+  }
+
+  private createHitText(x: number, y: number, value: number) {
+    const txt = this.add.text(x, y - 12, `${value}`, { fontSize: '13px', fontStyle: 'bold', color: '#ffd166' }).setOrigin(0.5).setDepth(20);
+    this.tweens.add({ targets: txt, y: txt.y - 28, alpha: 0, duration: 360, onComplete: () => txt.destroy() });
+  }
+
+  private createExpSpark() {
+    const spark = this.add.circle(this.player.x, this.player.y, 7, 0xffd166, 0.7).setDepth(13);
+    this.tweens.add({ targets: spark, scale: 2.2, alpha: 0, duration: 260, onComplete: () => spark.destroy() });
   }
 
   private createLevelAura() {

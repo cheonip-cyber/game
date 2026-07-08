@@ -47,7 +47,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.hp = Math.max(0, this.hp - amount);
     this.isInvincible = true;
     this.setTintFill();
-    this.scene.time.delayedCall(100, () => this.clearTint());
+    this.scene.cameras.main.shake(120, 0.006);
+    const flare = this.scene.add.circle(this.x, this.y, 18, 0xff2f5f, 0.25).setDepth(11);
+    this.scene.tweens.add({ targets: flare, scale: 2.4, alpha: 0, duration: 220, onComplete: () => flare.destroy() });
+    this.scene.time.delayedCall(100, () => { if (this.active) this.clearTint(); });
     this.scene.time.delayedCall(650, () => { this.isInvincible = false; });
   }
 
@@ -56,6 +59,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.isInvincible = true;
     this.dashReadyAt = time + 3000;
     this.setVelocity(this.lastDirection.x * this.speed * 3, this.lastDirection.y * this.speed * 3);
+    this.scene.cameras.main.shake(70, 0.0025);
+    const ring = this.scene.add.circle(this.x, this.y, 22, 0xffd166, 0).setStrokeStyle(3, 0xffd166, 0.75).setDepth(9);
+    this.scene.tweens.add({ targets: ring, scale: 2.4, alpha: 0, duration: 260, onComplete: () => ring.destroy() });
     this.spawnGhostTrail();
     this.scene.time.delayedCall(200, () => { this.isDashing = false; this.isInvincible = false; });
   }

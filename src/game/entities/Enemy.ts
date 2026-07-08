@@ -22,7 +22,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   receiveDamage(raw: number) {
     this.hp -= Math.max(1, raw - this.def);
     this.setTintFill();
-    this.scene.time.delayedCall(70, () => this.clearTint());
+    this.scene.time.delayedCall(70, () => { if (this.active) this.clearTint(); });
     if (this.hp <= 0) this.fsm.die();
   }
 }
