@@ -1,18 +1,16 @@
 import Phaser from 'phaser';
 import { DataManager } from '../systems/DataManager';
-
 export class MainMenuScene extends Phaser.Scene {
   constructor() { super('MainMenuScene'); }
   create() {
-    const { width, height } = this.scale;
-    const data = DataManager.load();
+    const state = DataManager.load();
+    const w = this.scale.width, h = this.scale.height;
     this.cameras.main.setBackgroundColor('#ffffff');
-    this.add.text(width / 2, height / 2 - 120, 'Routine Guardians', { fontSize: '34px', fontStyle: 'bold', color: '#800020' }).setOrigin(0.5);
-    this.add.text(width / 2, height / 2 - 70, '좋은 습관으로 유혹을 정화하는 탑다운 서바이버', { fontSize: '16px', color: '#333333' }).setOrigin(0.5);
-    this.add.text(width / 2, height / 2 - 28, `Action Points: ${data.actionPoints} / Best Time: ${Math.floor(data.bestTime)}s`, { fontSize: '13px', color: '#111111' }).setOrigin(0.5);
-    const start = this.add.rectangle(width / 2, height / 2 + 42, 260, 58, 0x800020, 1).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2, height / 2 + 42, 'START', { fontSize: '24px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
-    this.add.text(width / 2, height / 2 + 106, 'WASD 이동 / Space 대시', { fontSize: '13px', color: '#333333' }).setOrigin(0.5);
-    start.on('pointerdown', () => this.scene.start('GameScene'));
+    this.add.text(w / 2, h / 2 - 120, 'Survivor 3D: Routine Guardians', { fontSize: '24px', fontStyle: 'bold', color: '#800020' }).setOrigin(0.5);
+    this.add.text(w / 2, h / 2 - 70, 'WASD 이동 / SPACE 대시', { fontSize: '16px', color: '#333333' }).setOrigin(0.5);
+    this.add.text(w / 2, h / 2 - 30, `Action Points: ${state.actionPoints}   Best: ${Math.floor(state.bestTime / 1000)}s`, { fontSize: '14px', color: '#111111' }).setOrigin(0.5);
+    const btn = this.add.rectangle(w / 2, h / 2 + 54, 240, 54, 0x800020).setInteractive({ useHandCursor: true });
+    this.add.text(w / 2, h / 2 + 54, 'START ROUTINE', { fontSize: '16px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+    btn.on('pointerdown', () => this.scene.start('GameScene'));
   }
 }

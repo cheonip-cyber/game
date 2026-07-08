@@ -3,8 +3,7 @@ import { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 import { Enemy } from '../entities/Enemy';
 
-interface SkillDef { id: string; name: string; level: number; multiplier: number; cooldown: number; lastUsed: number; }
-
+export interface SkillDef { id: string; name: string; level: number; multiplier: number; cooldown: number; lastUsed: number; }
 export class SkillManager {
   skills: SkillDef[] = [
     { id: 'reading', name: '꾸준한 독서', level: 1, multiplier: 1.0, cooldown: 520, lastUsed: 0 },

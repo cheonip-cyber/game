@@ -1,47 +1,19 @@
 import Phaser from 'phaser';
-
 export class PreloaderScene extends Phaser.Scene {
   constructor() { super('PreloaderScene'); }
-
   create() {
-    this.createPlayerTexture();
-    this.createEnemyTexture('enemy', 0x5a5a66, 16);
-    this.createEnemyTexture('enemyChaser', 0x800020, 16);
-    this.createEnemyTexture('enemyElite', 0x222222, 26);
-    this.createBossTexture();
-    this.createProjectileTexture();
+    this.makeTextures();
     this.scene.start('MainMenuScene');
   }
-
-  private createPlayerTexture() {
+  private makeTextures() {
     const g = this.add.graphics();
-    g.fillStyle(0xffffff, 1); g.fillCircle(24, 20, 12);
-    g.lineStyle(5, 0x800020, 1); g.strokeCircle(24, 20, 12);
-    g.fillStyle(0x800020, 1); g.fillTriangle(12, 38, 36, 38, 24, 58);
-    g.generateTexture('player', 64, 64); g.destroy();
-  }
-
-  private createEnemyTexture(key: string, color: number, size: number) {
-    const g = this.add.graphics();
-    g.fillStyle(color, 1); g.fillCircle(size, size, size - 2);
-    g.lineStyle(3, 0xffffff, 0.65); g.strokeCircle(size, size, size - 2);
-    g.generateTexture(key, size * 2, size * 2); g.destroy();
-  }
-
-  private createBossTexture() {
-    const g = this.add.graphics();
-    g.fillStyle(0x800020, 1); g.fillCircle(48, 48, 42);
-    g.lineStyle(5, 0xffffff, 0.8); g.strokeCircle(48, 48, 42);
-    g.lineStyle(3, 0x111111, 1); g.strokeCircle(48, 48, 22);
-    g.generateTexture('boss', 96, 96); g.destroy();
-  }
-
-  private createProjectileTexture() {
-    const g = this.add.graphics();
-    g.fillStyle(0x800020, 1); g.fillCircle(8, 8, 7);
-    g.generateTexture('projectile', 16, 16); g.clear();
-    g.fillStyle(0xffffff, 1); g.fillCircle(7, 7, 6);
-    g.lineStyle(2, 0x800020, 1); g.strokeCircle(7, 7, 6);
-    g.generateTexture('bossBullet', 14, 14); g.destroy();
+    g.fillStyle(0xffffff, 1).lineStyle(4, 0x800020, 1).fillCircle(18, 18, 16).strokeCircle(18, 18, 16).fillStyle(0x800020, 1).fillTriangle(30, 18, 13, 9, 13, 27);
+    g.generateTexture('player', 40, 40); g.clear();
+    g.fillStyle(0x333333, 1).lineStyle(2, 0x800020).fillCircle(15, 15, 13).strokeCircle(15, 15, 13); g.generateTexture('enemy', 32, 32); g.clear();
+    g.fillStyle(0x5b5b5b, 1).lineStyle(2, 0x800020).fillCircle(15, 15, 13).strokeCircle(15, 15, 13).fillStyle(0x800020).fillCircle(15, 15, 5); g.generateTexture('enemyChaser', 32, 32); g.clear();
+    g.fillStyle(0x800020, 1).lineStyle(3, 0xffffff).fillCircle(24, 24, 22).strokeCircle(24, 24, 22); g.generateTexture('enemyElite', 50, 50); g.clear();
+    g.fillStyle(0x800020, 1).fillRoundedRect(0, 4, 22, 8, 4); g.generateTexture('projectile', 24, 16); g.clear();
+    g.fillStyle(0x800020, 0.95).lineStyle(5, 0x111111).fillCircle(50, 50, 46).strokeCircle(50, 50, 46).lineStyle(2, 0xffffff, 0.7).strokeCircle(50, 50, 30); g.generateTexture('boss', 104, 104); g.clear();
+    g.fillStyle(0x800020, 1).fillCircle(8, 8, 7); g.generateTexture('bossBullet', 18, 18); g.destroy();
   }
 }

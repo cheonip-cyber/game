@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
+import { Boss } from '../entities/Boss';
 import { SkillManager } from '../systems/SkillManager';
 import { WaveManager } from '../systems/WaveManager';
 import { ExpManager } from '../systems/ExpManager';
@@ -46,7 +47,10 @@ export class GameScene extends Phaser.Scene {
     this.player.update(time);
     this.enemies.getChildren().forEach((e) => (e as Enemy).fsm.update());
     this.waves.boss?.update(time);
-    if (this.waves.boss?.active) this.physics.world.overlap(this.skills.projectiles, this.waves.boss, (p, b) => { (b as any).receiveDamage((p as Projectile).damage); p.destroy(); });
+    if (this.waves.boss?.active) this.physics.world.overlap(this.skills.projectiles, this.waves.boss, (p, b) => {
+      (b as Boss).receiveDamage((p as Projectile).damage); p.destroy(); if (!(b as Boss).active) this.onBossKilled();
+    });
+    if (this.waves.boss?.active) this.physics.world.overlap(this.player, this.waves.boss, () => this.player.damage(this.waves.boss!.contactDamage));
     this.skills.update(time, this.enemies);
     this.waves.update(delta, time);
     this.ui.update(this.waves.elapsedMs, time);
@@ -60,31 +64,40 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onEnemyKilled(enemy: Enemy) {
-    const particles = this.add.particles(enemy.x, enemy.y, 'projectile', { speed: { min: 60, max: 180 }, lifespan: 340, quantity: 12, scale: { start: 1.2, end: 0 }, tint: 0x800020 });
-    this.time.delayedCall(360, () => particles.destroy());
-    const leveled = this.exp.add(enemy.exp);
-    if (leveled) this.ui.showLevelUp(() => this.skills.chooseUpgrade());
+    if (this.exp.add(enemy.exp)) {
+      this.createLevelAura();
+      this.ui.showLevelUp(() => this.skills.chooseUpgrade());
+    }
+  }
+
+  private onBossKilled() {
+    this.exp.add(500);
+    this.endGame();
+  }
+
+  private endGame() {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+    const points = Math.max(1, Math.floor(this.waves.elapsedMs / 10000) + this.exp.level * 3);
+    DataManager.addActionPoints(points, this.waves.elapsedMs);
+    this.ui.showGameOver(points);
+  }
+
+  private createLevelAura() {
+    const aura = this.add.circle(this.player.x, this.player.y, 20, 0x800020, 0.25).setDepth(12);
+    this.tweens.add({ targets: aura, y: aura.y - 90, scaleY: 5, scaleX: 1.4, alpha: 0, duration: 680, onComplete: () => aura.destroy() });
   }
 
   private drawInfiniteGrid() {
     const cam = this.cameras.main;
-    const step = 64;
-    const left = Math.floor(cam.worldView.x / step) * step;
-    const top = Math.floor(cam.worldView.y / step) * step;
+    const size = 80;
+    const startX = Math.floor(cam.worldView.x / size) * size;
+    const startY = Math.floor(cam.worldView.y / size) * size;
     this.grid.clear();
-    this.grid.lineStyle(1, 0x800020, 0.18);
-    for (let x = left; x < cam.worldView.right + step; x += step) this.grid.lineBetween(x, cam.worldView.y, x, cam.worldView.bottom);
-    for (let y = top; y < cam.worldView.bottom + step; y += step) this.grid.lineBetween(cam.worldView.x, y, cam.worldView.right, y);
-  }
-
-  private endGame() {
-    this.gameEnded = true;
-    const seconds = Math.floor(this.waves.elapsedMs / 1000);
-    const points = Math.max(1, Math.floor(seconds / 10) + this.exp.level * 2);
-    const saved = DataManager.load();
-    saved.actionPoints += points;
-    saved.bestTime = Math.max(saved.bestTime, seconds);
-    DataManager.save(saved);
-    this.ui.showGameOver(points);
+    this.grid.lineStyle(1, 0x800020, 0.15);
+    for (let x = startX; x < cam.worldView.right + size; x += size) this.grid.lineBetween(x, cam.worldView.y - size, x, cam.worldView.bottom + size);
+    for (let y = startY; y < cam.worldView.bottom + size; y += size) this.grid.lineBetween(cam.worldView.x - size, y, cam.worldView.right + size, y);
+    this.grid.lineStyle(1, 0xffffff, 0.05);
+    for (let x = startX; x < cam.worldView.right + size; x += size * 4) this.grid.lineBetween(x + cam.scrollX * 0.03, cam.worldView.y - size, x + cam.scrollX * 0.03, cam.worldView.bottom + size);
   }
 }
