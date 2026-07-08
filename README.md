@@ -9,6 +9,13 @@ npm install
 npm run dev
 ```
 
+## Vercel 배포
+
+Vercel에서 `cheonip-cyber/game` 저장소를 Import한 뒤 Framework Preset을 `Vite`로 선택하면 됩니다.
+
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
 ## 구현 범위
 
 - WASD 이동 / Space 대시
