@@ -17,6 +17,14 @@ interface GameOverScreenProps {
   onRankingRegistered: () => void;
 }
 
+const DEFAULT_RANKS: GameScore[] = [
+  { nickname: '학업우수자', score: 38000, survivalTime: 600, kills: 980, level: 25, difficulty: '상', stage: '초등학교 구역', date: '2026-07-01' },
+  { nickname: '선도위원장', score: 25000, survivalTime: 600, kills: 720, level: 21, difficulty: '중', stage: '초등학교 구역', date: '2026-07-03' },
+  { nickname: '크리스복제인간', score: 18000, survivalTime: 450, kills: 480, level: 16, difficulty: '하', stage: '초등학교 구역', date: '2026-07-04' },
+  { nickname: '공부벌레', score: 12000, survivalTime: 320, kills: 350, level: 12, difficulty: '하', stage: '초등학교 구역', date: '2026-07-05' },
+  { nickname: '빵셔틀탈출러', score: 9500, survivalTime: 280, kills: 280, level: 10, difficulty: '하', stage: '초등학교 구역', date: '2026-07-06' },
+];
+
 export default function GameOverScreen({
   victory,
   survivalTime,
@@ -37,35 +45,45 @@ export default function GameOverScreen({
 
   const totalDamage = Object.values(damageBreakdown).reduce((sum, d) => sum + d, 0);
 
+  const formatSec = (sec: number) => {
+    const safeSec = Math.max(0, Math.floor(sec));
+    const m = Math.floor(safeSec / 60);
+    const s = safeSec % 60;
+    return `${m}분 ${s}초`;
+  };
+
+  const stageNameMap: Record<string, string> = {
+    elementary: '초등학교 구역',
+    middle: '중학교 구역',
+    high: '고등학교 구역',
+  };
+
+  const getStoredRankings = (): GameScore[] => {
+    const stored = localStorage.getItem('school_attack_rankings');
+    if (!stored) return [];
+
+    try {
+      const parsed = JSON.parse(stored) as GameScore[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  };
+
+  const buildRankingView = (scores: GameScore[]) => {
+    return [...scores, ...DEFAULT_RANKS]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  };
+
+  const loadRankings = () => {
+    setGlobalRankings(buildRankingView(getStoredRankings()));
+  };
+
   useEffect(() => {
     loadRankings();
   }, []);
-
-  const loadRankings = () => {
-    const defaultRanks: GameScore[] = [
-      { nickname: '학업우수자', score: 38000, survivalTime: 600, kills: 980, level: 25, difficulty: '상', stage: '초등학교 구역', date: '2026-07-01' },
-      { nickname: '선도위원장', score: 25000, survivalTime: 600, kills: 720, level: 21, difficulty: '중', stage: '초등학교 구역', date: '2026-07-03' },
-      { nickname: '크리스복제인간', score: 18000, survivalTime: 450, kills: 480, level: 16, difficulty: '하', stage: '초등학교 구역', date: '2026-07-04' },
-      { nickname: '공부벌레', score: 12000, survivalTime: 320, kills: 350, level: 12, difficulty: '하', stage: '초등학교 구역', date: '2026-07-05' },
-      { nickname: '빵셔틀탈출러', score: 9500, survivalTime: 280, kills: 280, level: 10, difficulty: '하', stage: '초등학교 구역', date: '2026-07-06' },
-    ];
-
-    const stored = localStorage.getItem('school_attack_rankings');
-    let merged = [...defaultRanks];
-
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as GameScore[];
-        merged = [...parsed, ...defaultRanks];
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    const sorted = merged.sort((a, b) => b.score - a.score);
-    const unique = sorted.filter((v, i, a) => a.findIndex(t => t.nickname === v.nickname) === i);
-    setGlobalRankings(unique.slice(0, 10));
-  };
 
   const handleRegisterRanking = () => {
     if (registered) return;
@@ -75,12 +93,6 @@ export default function GameOverScreen({
       alert('등록할 이름을 기입해주세요!');
       return;
     }
-
-    const stageNameMap: Record<string, string> = {
-      elementary: '초등학교 구역',
-      middle: '중학교 구역',
-      high: '고등학교 구역',
-    };
 
     const newScore: GameScore = {
       nickname: trimmedName,
@@ -93,19 +105,10 @@ export default function GameOverScreen({
       date: new Date().toISOString().split('T')[0],
     };
 
-    const stored = localStorage.getItem('school_attack_rankings');
-    let list: GameScore[] = [];
-
-    if (stored) {
-      try {
-        list = JSON.parse(stored) as GameScore[];
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    list.push(newScore);
-    localStorage.setItem('school_attack_rankings', JSON.stringify(list));
+    const currentRankings = getStoredRankings();
+    const updatedRankings = [newScore, ...currentRankings];
+    localStorage.setItem('school_attack_rankings', JSON.stringify(updatedRankings));
+    localStorage.setItem('school_attack_nickname', trimmedName);
 
     const currentPoints = parseInt(localStorage.getItem('school_attack_points') || '0', 10);
     const totalCumulative = parseInt(localStorage.getItem('school_attack_total_score') || '0', 10);
@@ -114,12 +117,12 @@ export default function GameOverScreen({
     localStorage.setItem('school_attack_total_score', (totalCumulative + score).toString());
 
     setRegistered(true);
+    setGlobalRankings(buildRankingView(updatedRankings));
     onRankingRegistered();
-    loadRankings();
   };
 
   const handleShare = () => {
-    const timeStr = `${Math.floor(survivalTime / 60)}분 ${survivalTime % 60}초`;
+    const timeStr = formatSec(survivalTime);
     const shareText = `[크리스의 스쿨어택!] ${nickname}대원이 ${difficulty}난이도에서 ${timeStr} 생존, ${kills}명 처치하고 ${score}점을 획득했습니다!`;
 
     if (navigator.clipboard) {
@@ -130,15 +133,9 @@ export default function GameOverScreen({
     }
   };
 
-  const formatSec = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}분 ${s}초`;
-  };
-
   return (
-    <div className="min-h-[100dvh] bg-slate-950 text-slate-100 p-4 md:p-8 font-sans select-none relative overflow-y-auto">
-      <div className={`absolute top-1/4 left-1/2 -translate-x-1/2 w-[35%] h-[35%] rounded-full blur-[120px] pointer-events-none ${
+    <div className="h-[100dvh] max-h-[100dvh] overflow-y-auto overscroll-contain bg-slate-950 text-slate-100 p-4 md:p-8 pb-10 font-sans select-none relative">
+      <div className={`fixed top-1/4 left-1/2 -translate-x-1/2 w-[35%] h-[35%] rounded-full blur-[120px] pointer-events-none ${
         victory ? 'bg-emerald-900/25' : 'bg-rose-900/25'
       }`} />
 
@@ -231,7 +228,7 @@ export default function GameOverScreen({
                     type="text"
                     value={rankingName}
                     onChange={(e) => setRankingName(e.target.value)}
-                    maxLength={10}
+                    maxLength={20}
                     placeholder="닉네임 입력"
                     className="flex-1 bg-slate-950 border border-yellow-700/50 focus:border-yellow-400 px-4 py-3 rounded-xl text-slate-100 font-bold focus:outline-none text-sm"
                   />
@@ -251,7 +248,7 @@ export default function GameOverScreen({
             )}
           </div>
 
-          <div className="flex-1 min-h-0">
+          <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-yellow-400" />
@@ -260,12 +257,12 @@ export default function GameOverScreen({
               <span className="text-[10px] text-slate-500 font-mono font-bold uppercase">LOCAL RECORD</span>
             </div>
 
-            <div className="space-y-1.5 max-h-[360px] overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[46dvh] lg:max-h-[360px] overflow-y-auto pr-1">
               {globalRankings.map((rk, idx) => {
-                const isUser = rk.nickname === rankingName;
+                const isUser = rk.nickname === rankingName.trim() && rk.score === score;
                 return (
                   <div
-                    key={`${rk.nickname}-${rk.score}-${idx}`}
+                    key={`${rk.nickname}-${rk.score}-${rk.date}-${idx}`}
                     className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-colors ${
                       isUser
                         ? 'border-cyan-500 bg-cyan-950/10'
