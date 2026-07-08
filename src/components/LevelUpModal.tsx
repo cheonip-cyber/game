@@ -1,0 +1,120 @@
+import React from 'react';
+import { InGameItem } from '../types';
+import { Sparkles, Star, Award } from 'lucide-react';
+
+interface LevelUpModalProps {
+  level: number;
+  choices: InGameItem[];
+  weaponLevels: Record<string, number>;
+  onSelect: (item: InGameItem) => void;
+}
+
+export default function LevelUpModal({ level, choices, weaponLevels, onSelect }: LevelUpModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      {/* Visual background lights */}
+      <div className="absolute w-96 h-96 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute w-96 h-96 bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative z-10 animate-scale-up">
+        {/* Header */}
+        <div className="p-6 md:p-8 text-center bg-gradient-to-b from-slate-950 to-slate-900 border-b border-slate-800">
+          <div className="flex justify-center items-center gap-2 mb-2">
+            <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" />
+            <span className="text-xs font-black text-cyan-400 uppercase tracking-widest font-mono">성적 우수 보상 프로토콜</span>
+            <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" />
+          </div>
+          <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 tracking-tight drop-shadow-lg uppercase">
+            LEVEL {level} 달성!
+          </h2>
+          <p className="text-xs md:text-sm text-slate-400 mt-2">
+            학교 생활 평점 상승! 아래의 강화 방침 또는 지원 학용품 중 <strong className="text-yellow-400 font-bold">1가지</strong>를 선택해 교복을 진화시키십시오.
+          </p>
+        </div>
+
+        {/* Choices cards list */}
+        <div className="p-6 md:p-8 space-y-3 bg-slate-950/40">
+          {choices.map((item) => {
+            const currentLvl = weaponLevels[item.id] || 0;
+            const isNew = currentLvl === 0;
+
+            let borderClass = 'border-slate-800 hover:border-slate-700 bg-slate-900/50';
+            let bgLight = '';
+            if (item.rarity === '희귀') {
+              borderClass = 'border-blue-900 hover:border-blue-700 bg-blue-950/10 hover:bg-blue-950/15';
+              bgLight = 'bg-blue-500/10 text-blue-400';
+            } else if (item.rarity === '전설') {
+              borderClass = 'border-yellow-900 hover:border-yellow-600 bg-yellow-950/10 hover:bg-yellow-950/15';
+              bgLight = 'bg-yellow-500/10 text-yellow-400 animate-pulse';
+            } else {
+              bgLight = 'bg-slate-800 text-slate-400';
+            }
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSelect(item)}
+                className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer relative group overflow-hidden ${borderClass}`}
+              >
+                {/* Decorative hover overlay glow */}
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity pointer-events-none"
+                  style={{ backgroundColor: item.color }}
+                />
+
+                <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                  {/* Skill Color Badge */}
+                  <div 
+                    className="w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 text-slate-100 font-black text-lg select-none"
+                    style={{ 
+                      backgroundColor: `${item.color}15`, 
+                      borderColor: item.color,
+                      color: item.color
+                    }}
+                  >
+                    {item.name[0]}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-extrabold text-sm md:text-base text-slate-100 group-hover:text-white transition-colors truncate">
+                        {item.name}
+                      </h3>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bgLight}`}>
+                        {item.rarity}
+                      </span>
+                      <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-800 text-slate-400">
+                        {isNew ? 'NEW' : `Lv.${currentLvl}`}
+                      </span>
+                    </div>
+                    
+                    {/* Inline Enhancement Effect right below name */}
+                    <div className="flex items-center gap-1.5 mt-1 min-w-0">
+                      <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider shrink-0">강화:</span>
+                      <span className="text-xs font-bold text-emerald-400 group-hover:text-emerald-300 transition-colors truncate">
+                        {item.effect}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hidden sm:block shrink-0 text-right">
+                  <span className="text-[9px] text-slate-500 font-bold block uppercase tracking-widest">강화 효과</span>
+                  <span className="text-xs font-bold text-emerald-400 block mt-0.5 group-hover:text-emerald-300 transition-colors">
+                    {item.effect}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Footer info banner */}
+        <div className="p-4 bg-slate-950 text-center border-t border-slate-800 flex items-center justify-center gap-1.5 text-xs text-slate-500 font-mono">
+          <Award className="w-4 h-4 text-slate-600 animate-pulse" />
+          <span>SCHOOL ATTACK EXCELLENT STUDENT EVALUATION PROTOCOL</span>
+        </div>
+      </div>
+    </div>
+  );
+}

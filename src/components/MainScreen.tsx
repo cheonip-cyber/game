@@ -1,0 +1,434 @@
+import React, { useState, useEffect } from 'react';
+import { CHARACTERS, STAGES, DIFFICULTIES, CHALLENGES } from '../constants';
+import { Character, StageId, Difficulty, UpgradeState, GameScore } from '../types';
+import { Swords, Trophy, Sparkles, Lock, Gamepad2, Settings2, UserCheck, HelpCircle, Maximize, Minimize } from 'lucide-react';
+import UpgradeMenu from './UpgradeMenu';
+
+interface MainScreenProps {
+  onStartGame: (config: {
+    character: Character;
+    stageId: StageId;
+    difficulty: Difficulty;
+    nickname: string;
+  }) => void;
+  totalScore: number;
+  points: number;
+  upgrades: UpgradeState;
+  onUpgrade: (key: keyof UpgradeState, cost: number) => void;
+  onResetUpgrades: () => void;
+}
+
+export default function MainScreen({
+  onStartGame,
+  totalScore,
+  points,
+  upgrades,
+  onUpgrade,
+  onResetUpgrades,
+}: MainScreenProps) {
+  const [selectedChar, setSelectedChar] = useState<Character>(CHARACTERS[0]);
+  const [selectedStage, setSelectedStage] = useState<StageId>('elementary');
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('하');
+  const [nickname, setNickname] = useState<string>(() => {
+    return localStorage.getItem('school_attack_nickname') || '모범크리스';
+  });
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const [challenge, setChallenge] = useState('');
+  const [localRankings, setLocalRankings] = useState<GameScore[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch((err) => console.error("Fullscreen error:", err));
+    } else {
+      document.exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch((err) => console.error("Exit fullscreen error:", err));
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Select a challenge based on current date
+  useEffect(() => {
+    const day = new Date().getDate();
+    const index = day % CHALLENGES.length;
+    setChallenge(CHALLENGES[index]);
+
+    // Load local best rankings
+    const stored = localStorage.getItem('school_attack_rankings');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as GameScore[];
+        setLocalRankings(parsed.sort((a, b) => b.score - a.score).slice(0, 5));
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      // Mock local best if empty
+      const dummyRanks: GameScore[] = [
+        { nickname: '학업우수자', score: 12000, survivalTime: 600, kills: 450, level: 18, difficulty: '중', stage: '초등학교 구역', date: '2026-07-01' },
+        { nickname: '선도위원장', score: 8500, survivalTime: 420, kills: 310, level: 12, difficulty: '하', stage: '초등학교 구역', date: '2026-07-03' },
+      ];
+      setLocalRankings(dummyRanks);
+    }
+  }, []);
+
+  const handleStart = () => {
+    if (!nickname.trim()) {
+      alert('출격용 닉네임을 입력해주세요!');
+      return;
+    }
+    // Save nickname
+    localStorage.setItem('school_attack_nickname', nickname.trim());
+
+    // Check if character is locked
+    if (totalScore < selectedChar.unlockScore) {
+      alert(`이 캐릭터는 아직 잠겨있습니다! 필요한 누적 점수: ${selectedChar.unlockScore.toLocaleString()} (현재: ${totalScore.toLocaleString()})`);
+      return;
+    }
+
+    onStartGame({
+      character: selectedChar,
+      stageId: selectedStage,
+      difficulty: selectedDifficulty,
+      nickname: nickname.trim(),
+    });
+  };
+
+  return (
+    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-x-hidden overflow-y-auto font-sans no-callout">
+      {/* Background Graphic Effects */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/25 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-rose-900/20 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* Grid Overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+
+      {/* Header Container */}
+      <header className="relative w-full max-w-7xl mx-auto px-4 pt-6 md:pt-10 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-900 pb-6">
+        <div className="text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start gap-2 mb-1.5">
+            <span className="text-xs bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2.5 py-0.5 rounded-full font-bold tracking-wider animate-pulse">
+              RETRO SURVIVAL
+            </span>
+            <span className="text-xs bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-2.5 py-0.5 rounded-full font-bold tracking-wider">
+              MOBILE SUPPORT
+            </span>
+          </div>
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-indigo-400 to-rose-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_8px_rgba(99,102,241,0.3)]">
+            크리스의 스쿨어택!
+          </h1>
+          <p className="text-xs md:text-sm text-slate-400 mt-1">학교가 불량학생들과 유해환경에 침식되었습니다. 선생님이 도착할 때까지 생존하십시오!</p>
+        </div>
+
+        {/* Stats and Upgrades Menu Trigger */}
+        <div className="flex flex-wrap items-center gap-3 bg-slate-900/60 p-4 border border-slate-800 rounded-xl">
+          <div className="text-left">
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">누적 획득 점수</div>
+            <div className="text-sm font-black text-cyan-400">{totalScore.toLocaleString()} PTS</div>
+          </div>
+          <div className="w-px h-8 bg-slate-800" />
+          <div className="text-left">
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">강화 포인트</div>
+            <div className="text-sm font-black text-yellow-400">{points.toLocaleString()} PTS</div>
+          </div>
+          <button
+            onClick={() => setShowUpgrade(true)}
+            className="ml-2 flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-950 font-black px-4 py-2 rounded-lg text-xs transition-all cursor-pointer shadow-md shadow-yellow-500/10 hover:shadow-yellow-400/20"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>영구 능력 강화</span>
+          </button>
+
+          <div className="w-px h-8 bg-slate-800 hidden sm:block" />
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md"
+          >
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5 text-cyan-400" />}
+            <span>{isFullscreen ? '창모드' : '전체화면'}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Dashboard */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+        {/* Left Area: Form Setup (Nickname, Stage, Difficulty, Challenge, Local Best) */}
+        <section className="lg:col-span-4 space-y-6 flex flex-col justify-between">
+          <div className="space-y-6">
+            {/* Nickname Input */}
+            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+              <label htmlFor="nickname" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <UserCheck className="w-4 h-4 text-cyan-400" />
+                출격 대원 명찰 (닉네임)
+              </label>
+              <input
+                id="nickname"
+                type="text"
+                maxLength={10}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="닉네임을 입력하세요..."
+                className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-cyan-400 px-4 py-3 rounded-xl text-slate-100 font-bold focus:outline-none transition-colors text-sm"
+              />
+            </div>
+
+            {/* Stage Selector */}
+            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+              <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">구역 선택 (STAGES)</span>
+              <div className="space-y-2.5">
+                {STAGES.map((stg) => {
+                  const isSelected = selectedStage === stg.id;
+                  return (
+                    <button
+                      key={stg.id}
+                      onClick={() => setSelectedStage(stg.id)}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1 cursor-pointer ${
+                        isSelected
+                          ? 'border-cyan-400 bg-cyan-950/15 ring-2 ring-cyan-400/20'
+                          : 'border-slate-800 bg-slate-950/40 hover:bg-slate-900/40 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className={`font-black text-sm ${isSelected ? 'text-cyan-400' : 'text-slate-200'}`}>
+                          {stg.name}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          isSelected ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-500'
+                        }`}>
+                          획득 점수 x{stg.multiplier.toFixed(1)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">{stg.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Difficulty Selector */}
+            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+              <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">난이도 설정</span>
+              <div className="grid grid-cols-2 gap-2">
+                {DIFFICULTIES.map((diff) => {
+                  const isSelected = selectedDifficulty === diff.id;
+                  return (
+                    <button
+                      key={diff.id}
+                      onClick={() => setSelectedDifficulty(diff.id)}
+                      className={`p-3 rounded-xl border text-center font-bold text-xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                        isSelected
+                          ? 'border-indigo-400 bg-indigo-950/20 ring-2 ring-indigo-400/25 text-indigo-200'
+                          : 'border-slate-800 bg-slate-950/40 hover:bg-slate-900/40 hover:border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      <span className="text-sm font-black">{diff.label}</span>
+                      <span className="text-[10px] text-slate-500">배율 x{diff.multiplier}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Today's Challenge */}
+          <div className="bg-slate-900/50 p-4 border border-indigo-950/40 rounded-xl bg-gradient-to-r from-indigo-950/10 to-transparent mt-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">오늘의 챌린지</span>
+            </div>
+            <p className="text-xs text-indigo-200 leading-normal">{challenge}</p>
+          </div>
+        </section>
+
+        {/* Right Area: Characters Card Selection & Local Ranking Grid */}
+        <section className="lg:col-span-8 space-y-6">
+          <div>
+            <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+              <Gamepad2 className="w-4 h-4 text-cyan-400" />
+              출격할 학생 기체 (교복 카드 선택)
+            </h2>
+
+            {/* Characters grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {CHARACTERS.map((char) => {
+                const isLocked = totalScore < char.unlockScore;
+                const isSelected = selectedChar.id === char.id;
+
+                return (
+                  <div
+                    key={char.id}
+                    onClick={() => {
+                      if (!isLocked) {
+                        setSelectedChar(char);
+                      }
+                    }}
+                    className={`relative rounded-2xl border p-5 flex flex-col justify-between transition-all duration-300 min-h-[300px] group ${
+                      isLocked
+                        ? 'bg-slate-950/20 border-slate-900/80 cursor-not-allowed opacity-50'
+                        : isSelected
+                        ? 'border-2 bg-slate-900/80 shadow-2xl scale-[1.02]'
+                        : 'border-slate-800 bg-slate-900/30 hover:border-slate-700 cursor-pointer'
+                    }`}
+                    style={{
+                      borderColor: !isLocked && isSelected ? char.imageColor : undefined,
+                      boxShadow: !isLocked && isSelected ? `${char.imageColor}20 0px 10px 30px` : undefined,
+                    }}
+                  >
+                    {/* Locked overlay info */}
+                    {isLocked && (
+                      <div className="absolute inset-0 bg-slate-950/80 rounded-2xl flex flex-col items-center justify-center p-4 z-20 text-center">
+                        <Lock className="w-8 h-8 text-slate-500 mb-2 animate-bounce" />
+                        <span className="text-xs font-bold text-slate-400 block mb-1">교내 징계 해제 중</span>
+                        <span className="text-[10px] text-rose-400 font-black">
+                          필요 누적 점수:<br />
+                          {char.unlockScore.toLocaleString()} PTS
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Card Upper */}
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{char.title}</span>
+                          <h3 className="text-2xl font-black tracking-tight" style={{ color: char.imageColor }}>
+                            {char.name}
+                          </h3>
+                        </div>
+                        {/* Decorative visual avatar representation */}
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center border text-white font-extrabold text-lg select-none"
+                          style={{ 
+                            backgroundColor: `${char.imageColor}20`,
+                            borderColor: char.imageColor,
+                            color: char.imageColor
+                          }}
+                        >
+                          {char.name[0]}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-400 leading-normal mb-5">{char.description}</p>
+                    </div>
+
+                    {/* Card Stats */}
+                    <div className="space-y-2 border-t border-slate-800/80 pt-4">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-500">기본 체력</span>
+                        <span className="font-bold text-slate-300">{char.baseHp} HP</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-500">기본 기동력</span>
+                        <span className="font-bold text-slate-300">{char.baseSpeed}m/s</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-500">기본 공격계수</span>
+                        <span className="font-bold text-slate-300">x{(char.baseDamage / 10).toFixed(1)}</span>
+                      </div>
+
+                      {/* Special skill description */}
+                      <div className="mt-3 bg-slate-950/40 p-2.5 rounded-lg border border-slate-900">
+                        <span className="text-[10px] font-bold text-yellow-500 block">특기 스킬 : {char.specialSkill}</span>
+                        <span className="text-[10px] text-slate-400 leading-snug mt-0.5 block">{char.specialSkillDesc}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Ranking & Help Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            {/* Local Rankings */}
+            <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3.5">
+                <Trophy className="w-4 h-4 text-yellow-400" />
+                <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">명예의 전당 TOP 5 (로컬 기록)</h3>
+              </div>
+              <div className="space-y-2">
+                {localRankings.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">등록된 생존 명단이 없습니다.</p>
+                ) : (
+                  localRankings.map((rk, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/50 border border-slate-900 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold ${
+                          idx === 0 ? 'bg-yellow-400 text-slate-950' : idx === 1 ? 'bg-slate-300 text-slate-950' : 'bg-slate-800 text-slate-400'
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <span className="font-bold text-slate-300">{rk.nickname}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-cyan-400 block">{rk.score.toLocaleString()}</span>
+                        <span className="text-[9px] text-slate-500">{rk.stage} / {Math.floor(rk.survivalTime / 60)}분{rk.survivalTime % 60}초</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Instructions Help */}
+            <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <HelpCircle className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest font-mono">생존용 안전 조작 매뉴얼</h3>
+                </div>
+                <ul className="text-xs text-slate-400 space-y-2.5 pl-1 leading-relaxed">
+                  <li>💻 <strong className="text-slate-200">PC 조작:</strong> WASD 또는 방향키로 교복 수트 이동. 자동 발사 사격.</li>
+                  <li>🏃‍♂️ <strong className="text-slate-200">대시 회피:</strong> Space 키를 눌러 바라보는 방향으로 무적 대시.</li>
+                  <li>📱 <strong className="text-slate-200">모바일 조작:</strong> 화면 아무 곳이나 드래그해 가상 조이스틱 이동. 두 손가락 탭 또는 대시용 전용 터치 버튼 클릭 시 대시 가능!</li>
+                  <li>🎒 <strong className="text-slate-200">레벨업 보상:</strong> 획득한 비타민 연필 경험치 보석으로 레벨업하고 다양한 학용품 배리어를 진화시키십시오.</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-slate-800/80 pt-4 mt-4 text-[11px] text-slate-500">
+                선생님 도착 예정 시간: <strong className="text-rose-400">10분</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Deploy Combat Launch Button Container */}
+      <footer className="relative w-full border-t border-slate-900 py-8 bg-slate-950/80 backdrop-blur z-20">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
+          <button
+            onClick={handleStart}
+            className="group relative w-full max-w-md bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-slate-950 font-black text-lg py-4 px-8 rounded-2xl transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-2xl shadow-indigo-500/20 hover:shadow-indigo-500/40 border-t border-white/20 cursor-pointer text-center flex items-center justify-center gap-3"
+          >
+            <Swords className="w-6 h-6 animate-pulse" />
+            <span className="tracking-widest">교복 나노수트 장착 & 스쿨어택 출격!</span>
+          </button>
+          <span className="text-[10px] text-slate-500 font-mono">
+            CONNECTED TO AIS-DEV CORE CLUSTER 7202
+          </span>
+        </div>
+      </footer>
+
+      {/* Upgrades Store Popup Modal */}
+      {showUpgrade && (
+        <UpgradeMenu
+          upgrades={upgrades}
+          points={points}
+          onUpgrade={onUpgrade}
+          onReset={onResetUpgrades}
+          onClose={() => setShowUpgrade(false)}
+        />
+      )}
+    </div>
+  );
+}

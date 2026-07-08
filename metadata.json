@@ -1,0 +1,6 @@
+{
+  "name": "크리스의 스쿨어택",
+  "description": "불량학생과 유해환경에 잠식된 학교에서 선생님이 오실 때까지 생존하는 뱀파이어 서바이버즈 스타일의 모바일 최적화 액션 게임입니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
