@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { Player } from '../entities/Player';
 import { ExpManager } from './ExpManager';
 import { SkillManager, UpgradeOption } from './SkillManager';
+import { RankingEntry } from './DataManager';
 
 const BURGUNDY = 0x800020;
 const RARITY_COLORS: Record<UpgradeOption['rarity'], number> = {
@@ -22,15 +23,15 @@ export class UIManager {
     this.create();
   }
 
-  update(elapsedMs: number, time: number) {
+  update(elapsedMs: number, time: number, kills = 0, score = 0, difficulty = '중 x2', character = '모범생 크리스', stage = 1) {
     this.hpBar.width = 220 * (this.player.hp / this.player.maxHp);
     this.expBar.width = this.scene.scale.width * (this.exp.exp / this.exp.requiredExp);
     const sec = Math.floor(elapsedMs / 1000);
-    this.timerText.setText(`${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`);
-    this.levelText.setText(`LV ${this.exp.level}`);
+    this.timerText.setText(`${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}  처치 ${kills}  점수 ${score}`);
+    this.levelText.setText(`LV ${this.exp.level}  ${difficulty}  STAGE ${stage}`);
     const cd = this.player.getDashCooldownRatio(time);
     this.dashText.setText(cd > 0 ? `DASH ${(cd * 3).toFixed(1)}s` : 'DASH READY');
-    this.skillTexts.forEach((txt, i) => txt.setText(this.skills.skills[i]?.name.slice(0, 12) ?? '-'));
+    this.skillTexts.forEach((txt, i) => txt.setText(i === 0 ? character.slice(0, 12) : this.skills.skills[i - 1]?.name.slice(0, 12) ?? '-'));
   }
 
   showLevelUp(choices: UpgradeOption[], onPick: (choice: UpgradeOption) => void) {
@@ -66,18 +67,52 @@ export class UIManager {
     });
   }
 
-  showGameOver(points: number, elapsedMs: number) {
+  showStageClear(onContinue: () => void, onFinish: () => void) {
     this.scene.physics.world.pause();
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
-    const sec = Math.floor(elapsedMs / 1000);
+    const overlay = this.scene.add.rectangle(w / 2, h / 2, w, h, 0x050611, 0.82).setScrollFactor(0).setDepth(1150);
+    const title = this.scene.add.text(w / 2, h / 2 - 128, '선생님 도착', { fontSize: '32px', fontStyle: 'bold', color: '#63e6ff' }).setOrigin(0.5).setScrollFactor(0).setDepth(1151);
+    const body = this.scene.add.text(w / 2, h / 2 - 56, '10분 생존 성공.\n다음 스테이지는 30분 생존, 강화된 적, 더 높은 점수 배율입니다.', { fontSize: '15px', color: '#ffffff', align: 'center', wordWrap: { width: 420 } }).setOrigin(0.5).setScrollFactor(0).setDepth(1151);
+    const close = () => {
+      overlay.destroy();
+      title.destroy();
+      body.destroy();
+      continueBtn.destroy();
+      finishBtn.destroy();
+      continueText.destroy();
+      finishText.destroy();
+      this.scene.physics.world.resume();
+    };
+    const continueBtn = this.scene.add.rectangle(w / 2, h / 2 + 42, 270, 52, 0x111422, 0.96).setStrokeStyle(2, 0xffd166, 1).setScrollFactor(0).setDepth(1151).setInteractive({ useHandCursor: true });
+    const continueText = this.scene.add.text(w / 2, h / 2 + 42, '다음 스테이지 진출', { fontSize: '16px', fontStyle: 'bold', color: '#ffd166' }).setOrigin(0.5).setScrollFactor(0).setDepth(1152);
+    const finishBtn = this.scene.add.rectangle(w / 2, h / 2 + 106, 230, 46, 0x111422, 0.96).setStrokeStyle(2, 0x63e6ff, 0.9).setScrollFactor(0).setDepth(1151).setInteractive({ useHandCursor: true });
+    const finishText = this.scene.add.text(w / 2, h / 2 + 106, '기록 등록', { fontSize: '15px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0).setDepth(1152);
+    continueBtn.on('pointerdown', () => { close(); onContinue(); });
+    finishBtn.on('pointerdown', () => { close(); onFinish(); });
+  }
 
-    this.scene.add.rectangle(w / 2, h / 2, 440, 320, 0xffffff, 0.97).setStrokeStyle(3, BURGUNDY).setScrollFactor(0).setDepth(1200);
-    this.scene.add.text(w / 2, h / 2 - 112, 'ROUTINE COMPLETE', { fontSize: '24px', fontStyle: 'bold', color: '#800020' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
-    this.scene.add.text(w / 2, h / 2 - 58, `Survived ${Math.floor(sec / 60)}m ${sec % 60}s`, { fontSize: '15px', color: '#333333' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
-    this.scene.add.text(w / 2, h / 2 - 28, `Action Points +${points}`, { fontSize: '17px', fontStyle: 'bold', color: '#111111' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
-    this.createButton(w / 2, h / 2 + 42, 'RETRY', () => this.scene.scene.restart());
-    this.createButton(w / 2, h / 2 + 104, 'MAIN MENU', () => this.scene.scene.start('MainMenuScene'));
+  showGameOver(entry: RankingEntry, earnedPoints: number, rankings: RankingEntry[]) {
+    this.scene.physics.world.pause();
+    const w = this.scene.scale.width;
+    const h = this.scene.scale.height;
+    const sec = Math.floor(entry.survivedMs / 1000);
+
+    this.scene.add.rectangle(w / 2, h / 2, w, h, 0x250006, 0.76).setScrollFactor(0).setDepth(1200);
+    this.scene.add.text(w / 2, 128, 'SIGNAL LOST', { fontSize: '42px', fontStyle: 'bold', color: '#ff3048' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
+    this.scene.add.text(w / 2, 184, `생존 ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} · 처치 ${entry.kills} · Lv.${entry.level} · 점수 ${entry.score}`, { fontSize: '15px', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
+    this.scene.add.text(w / 2, 224, `포인트 +${earnedPoints} · 난이도 ${entry.difficulty} · STAGE ${entry.stage}`, { fontSize: '13px', color: '#ffd166' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
+    this.scene.add.text(w / 2, 282, '- LOCAL TOP 10 -', { fontSize: '18px', fontStyle: 'bold', color: '#63e6ff' }).setOrigin(0.5).setScrollFactor(0).setDepth(1201);
+
+    rankings.slice(0, 7).forEach((rank, index) => {
+      const y = 326 + index * 44;
+      this.scene.add.rectangle(w / 2, y, Math.min(520, w - 56), 36, 0x0d1020, 0.76).setStrokeStyle(1, 0x7d84aa, 0.35).setScrollFactor(0).setDepth(1201);
+      this.scene.add.text(52, y, `${index + 1}. ${rank.nickname}`, { fontSize: '14px', color: '#ffffff' }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1202);
+      this.scene.add.text(w - 56, y, `${Math.floor(rank.survivedMs / 1000)}s · ${rank.score}`, { fontSize: '14px', color: '#ffffff' }).setOrigin(1, 0.5).setScrollFactor(0).setDepth(1202);
+    });
+
+    this.createButton(w / 2 - 118, h - 92, '다시 시작', () => this.scene.scene.restart());
+    this.createButton(w / 2 + 118, h - 92, '메인으로', () => this.scene.scene.start('MainMenuScene'));
   }
 
   private createButton(x: number, y: number, label: string, onClick: () => void) {

@@ -6,7 +6,7 @@ import { SkillManager } from '../systems/SkillManager';
 import { WaveManager } from '../systems/WaveManager';
 import { ExpManager } from '../systems/ExpManager';
 import { UIManager } from '../systems/UIManager';
-import { DataManager } from '../systems/DataManager';
+import { CharacterDef, DataManager, DifficultyDef, GameSessionConfig, UserGameState } from '../systems/DataManager';
 import { Projectile } from '../entities/Projectile';
 import { ExpOrb } from '../entities/ExpOrb';
 
@@ -23,21 +23,51 @@ export class GameScene extends Phaser.Scene {
   private gameEnded = false;
   private bossKilled = false;
   private choosingUpgrade = false;
+  private stagePromptOpen = false;
+  private session!: GameSessionConfig;
+  private state!: UserGameState;
+  private character!: CharacterDef;
+  private difficulty!: DifficultyDef;
+  private kills = 0;
+  private score = 0;
+  private stage = 1;
 
   constructor() { super('GameScene'); }
+
+  init(data: Partial<GameSessionConfig> = {}) {
+    const saved = DataManager.load();
+    this.session = {
+      character: data.character ?? saved.selectedCharacter,
+      difficulty: data.difficulty ?? saved.selectedDifficulty,
+      nickname: data.nickname ?? saved.nickname,
+      stage: data.stage ?? 1
+    };
+    this.state = saved;
+    this.character = DataManager.getCharacter(this.session.character);
+    this.difficulty = DataManager.getDifficulty(this.session.difficulty);
+    this.stage = this.session.stage;
+    this.kills = 0;
+    this.score = 0;
+    this.gameEnded = false;
+    this.bossKilled = false;
+    this.choosingUpgrade = false;
+    this.stagePromptOpen = false;
+  }
 
   create() {
     this.cameras.main.setBackgroundColor('#101014');
     this.physics.world.setBounds(-100000, -100000, 200000, 200000);
     this.grid = this.add.graphics().setDepth(0);
     this.player = new Player(this, 0, 0);
+    this.applyPlayerProfile();
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
     this.enemies = this.physics.add.group();
     this.expOrbs = this.physics.add.group({ classType: ExpOrb, runChildUpdate: false });
     this.bossBullets = this.physics.add.group();
     this.exp = new ExpManager();
     this.skills = new SkillManager(this, this.player);
-    this.waves = new WaveManager(this, this.player, this.enemies, this.bossBullets);
+    this.waves = new WaveManager(this, this.player, this.enemies, this.bossBullets, this.difficulty);
+    this.waves.setStage(this.stage);
     this.ui = new UIManager(this, this.player, this.exp, this.skills);
 
     this.physics.add.overlap(this.skills.projectiles, this.enemies, (p, e) => this.projectileHit(p as Projectile, e as Enemy));
@@ -59,7 +89,8 @@ export class GameScene extends Phaser.Scene {
     if (this.waves.boss?.active) this.physics.world.overlap(this.player, this.waves.boss, () => this.player.damage(this.waves.boss!.contactDamage));
     this.skills.update(time, this.enemies);
     this.waves.update(delta, time);
-    this.ui.update(this.waves.elapsedMs, time);
+    this.ui.update(this.waves.elapsedMs, time, this.kills, this.score, this.difficulty.name, this.character.name, this.stage);
+    this.checkStageProgress();
     if (this.player.hp <= 0) this.endGame();
   }
 
@@ -81,6 +112,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onEnemyKilled(enemy: Enemy) {
+    this.kills += 1;
+    this.score += Math.ceil((10 + enemy.exp * 5) * this.difficulty.multiplier * (this.stage >= 2 ? 1.7 : 1));
     const orb = new ExpOrb(this, enemy.x, enemy.y, enemy.exp);
     this.expOrbs.add(orb);
   }
@@ -105,15 +138,53 @@ export class GameScene extends Phaser.Scene {
     if (this.bossKilled) return;
     this.bossKilled = true;
     this.exp.add(500);
+    this.score += Math.ceil(1200 * this.difficulty.multiplier);
     this.endGame();
   }
 
   private endGame() {
     if (this.gameEnded) return;
     this.gameEnded = true;
-    const points = Math.max(1, Math.floor(this.waves.elapsedMs / 10000) + this.exp.level * 3);
-    DataManager.addActionPoints(points, this.waves.elapsedMs);
-    this.ui.showGameOver(points, this.waves.elapsedMs);
+    const survivalScore = Math.floor(this.waves.elapsedMs / 1000) * 5;
+    const levelScore = this.exp.level * 100;
+    const stageScore = this.stage >= 2 ? 1500 : 0;
+    const finalScore = Math.ceil((this.score + survivalScore + levelScore + stageScore) * this.difficulty.multiplier);
+    const result = DataManager.addRunResult({
+      nickname: this.session.nickname,
+      score: finalScore,
+      survivedMs: this.waves.elapsedMs,
+      kills: this.kills,
+      level: this.exp.level,
+      difficulty: this.session.difficulty,
+      character: this.session.character,
+      stage: this.stage
+    });
+    this.ui.showGameOver(result.entry, result.earnedPoints, result.state.rankings);
+  }
+
+  private checkStageProgress() {
+    if (this.stagePromptOpen || this.gameEnded || this.choosingUpgrade) return;
+    if (this.stage === 1 && this.waves.elapsedMs >= 10 * 60000) {
+      this.stagePromptOpen = true;
+      this.ui.showStageClear(() => {
+        this.stage = 2;
+        this.stagePromptOpen = false;
+        this.waves.setStage(2);
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 45);
+        this.cameras.main.flash(180, 80, 220, 255);
+      }, () => this.endGame());
+      return;
+    }
+    if (this.stage >= 2 && this.waves.elapsedMs >= 30 * 60000) this.endGame();
+  }
+
+  private applyPlayerProfile() {
+    const upgrades = this.state.characterUpgrades;
+    this.player.maxHp += this.character.hpBonus + upgrades.stamina * 12;
+    this.player.hp = this.player.maxHp;
+    this.player.speed += this.character.speedBonus + upgrades.mobility * 8;
+    this.player.baseAtk += this.character.atkBonus + upgrades.focus * 3;
+    this.player.critChance = Math.min(0.55, this.player.critChance + this.character.critBonus + upgrades.focus * 0.015);
   }
 
   private createHitText(x: number, y: number, value: number) {
