@@ -3,7 +3,7 @@ import { Character, Stage, Difficulty, InGameItem } from './types';
 export const CHARACTERS: Character[] = [
   {
     id: 'chris',
-    name: '크리스',
+    name: 'Chris',
     title: '성실한 모범생',
     description: '공부와 운동 모두 놓치지 않는 정석형 학생. 학습 능력이 뛰어나 아이템 획득 범위가 넓고 이동 속도가 빠릅니다.',
     unlockScore: 0,
@@ -18,7 +18,7 @@ export const CHARACTERS: Character[] = [
   },
   {
     id: 'minwoo',
-    name: '민우',
+    name: 'Abigail',
     title: '강인한 반장',
     description: '의리가 넘치는 듬직한 반장. 불량학생의 공격에도 쉽게 흔들리지 않는 맷집과 수호력을 가졌습니다.',
     unlockScore: 15000,
@@ -33,7 +33,7 @@ export const CHARACTERS: Character[] = [
   },
   {
     id: 'haeun',
-    name: '하은',
+    name: 'Elena',
     title: '선도부 부장',
     description: '규율과 정의의 화신. 매우 공격적이고 민첩하며, 유도 성질을 가진 단단한 백분필 미사일을 난사합니다.',
     unlockScore: 50000,
