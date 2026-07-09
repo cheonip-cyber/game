@@ -164,7 +164,7 @@ export default function GameCanvas({
 
   useEffect(() => {
     const heroImage = new Image();
-    heroImage.src = '/assets/game/student-heroes-directional.png';
+    heroImage.src = '/assets/game/student-heroes-directional-v3.png';
     heroImage.onload = () => {
       heroImageRef.current = heroImage;
     };
@@ -1932,39 +1932,20 @@ export default function GameCanvas({
         right: 2,
         up: 3,
       };
-      const shouldFlipSprite = character.id === 'haeun' && playerFacingRef.current === 'left';
       const spriteSize = stats.isDashing ? 76 : 68;
       ctx.shadowBlur = stats.isDashing ? 28 : 16;
       ctx.shadowColor = character.imageColor;
-      if (shouldFlipSprite) {
-        ctx.save();
-        ctx.translate(playerScreenX, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(
-          heroImage,
-          heroIndex * sourceWidth,
-          facingRow[playerFacingRef.current] * sourceHeight,
-          sourceWidth,
-          sourceHeight,
-          -spriteSize / 2,
-          playerScreenY - spriteSize * 0.68,
-          spriteSize,
-          spriteSize,
-        );
-        ctx.restore();
-      } else {
-        ctx.drawImage(
-          heroImage,
-          heroIndex * sourceWidth,
-          facingRow[playerFacingRef.current] * sourceHeight,
-          sourceWidth,
-          sourceHeight,
-          playerScreenX - spriteSize / 2,
-          playerScreenY - spriteSize * 0.68,
-          spriteSize,
-          spriteSize,
-        );
-      }
+      ctx.drawImage(
+        heroImage,
+        heroIndex * sourceWidth,
+        facingRow[playerFacingRef.current] * sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        playerScreenX - spriteSize / 2,
+        playerScreenY - spriteSize * 0.68,
+        spriteSize,
+        spriteSize,
+      );
     } else {
       ctx.beginPath();
       ctx.arc(playerScreenX, playerScreenY, stats.playerRadius, 0, Math.PI * 2);
