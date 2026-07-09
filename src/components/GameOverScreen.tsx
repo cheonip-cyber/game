@@ -143,21 +143,21 @@ export default function GameOverScreen({
   };
 
   return (
-    <div className="school-3d-shell h-[100dvh] max-h-[100dvh] overflow-y-auto overscroll-contain bg-slate-950 text-slate-100 p-4 md:p-8 pb-10 font-sans select-none relative">
+    <div className="school-3d-shell h-[100dvh] max-h-[100dvh] overflow-y-auto overscroll-contain bg-slate-950 text-slate-100 p-2 pb-[max(1rem,env(safe-area-inset-bottom))] font-sans select-none relative">
       <div className="school-3d-hero opacity-30" aria-hidden="true" />
       <div className={`fixed top-1/4 left-1/2 -translate-x-1/2 w-[35%] h-[35%] rounded-full blur-[120px] pointer-events-none ${
         victory ? 'bg-emerald-900/25' : 'bg-rose-900/25'
       }`} />
 
-      <div className="school-3d-panel w-full max-w-5xl mx-auto bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative z-10 grid grid-cols-1 lg:grid-cols-12">
-        <div className="lg:col-span-5 p-5 md:p-8 bg-slate-950/80 border-b lg:border-b-0 lg:border-r border-slate-800">
+      <div className="school-3d-panel w-full mx-auto bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative z-10 grid grid-cols-1">
+        <div className="p-4 bg-slate-950/80 border-b border-slate-800">
           <div className="text-center mb-5">
             {victory ? (
               <>
                 <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full font-bold tracking-widest uppercase animate-pulse">
                   MISSION COMPLETE
                 </span>
-                <h2 className="text-3xl md:text-5xl font-black text-emerald-400 mt-2 tracking-tight">선생님 구출!</h2>
+                <h2 className="text-3xl font-black text-emerald-400 mt-2 tracking-tight">선생님 구출!</h2>
                 <p className="text-xs text-slate-400 mt-1">질서 정리가 완료되었습니다. 다음 구역을 향해 나아가십시오.</p>
               </>
             ) : (
@@ -165,7 +165,7 @@ export default function GameOverScreen({
                 <span className="text-[10px] bg-rose-500/10 border border-rose-500/20 text-rose-400 px-3 py-1 rounded-full font-bold tracking-widest uppercase animate-pulse">
                   SIGNAL LOST
                 </span>
-                <h2 className="text-3xl md:text-5xl font-black text-rose-500 mt-2 tracking-tight">학교 정화 실패</h2>
+                <h2 className="text-3xl font-black text-rose-500 mt-2 tracking-tight">학교 정화 실패</h2>
                 <p className="text-xs text-slate-400 mt-1">유해환경과 불량 세력에 교복 나노수트 에너지가 소진되었습니다.</p>
               </>
             )}
@@ -223,17 +223,17 @@ export default function GameOverScreen({
           </div>
         </div>
 
-        <div className="lg:col-span-7 p-5 md:p-8 flex flex-col gap-5">
-          <div className="rounded-2xl border-2 border-yellow-500/40 bg-yellow-950/20 p-4 md:p-5 shadow-lg shadow-yellow-950/20">
+        <div className="p-4 flex flex-col gap-4">
+          <div className="rounded-2xl border-2 border-yellow-500/40 bg-yellow-950/20 p-4 shadow-lg shadow-yellow-950/20">
             <div className="flex items-center gap-2 mb-3">
               <Save className="w-5 h-5 text-yellow-400" />
-              <h3 className="text-sm md:text-base font-black text-yellow-300 tracking-widest">랭킹 저장</h3>
+              <h3 className="text-sm font-black text-yellow-300 tracking-widest">랭킹 저장</h3>
             </div>
 
             {!registered ? (
               <div className="space-y-3">
                 <label className="block text-xs font-bold text-slate-300">닉네임을 입력하고 이번 기록을 저장하세요.</label>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col gap-2">
                   <input
                     type="text"
                     value={rankingName}
@@ -267,7 +267,7 @@ export default function GameOverScreen({
               <span className="text-[10px] text-slate-500 font-mono font-bold uppercase">LOCAL RECORD</span>
             </div>
 
-            <div className="space-y-1.5 max-h-[46dvh] lg:max-h-[360px] overflow-y-auto pr-1">
+            <div className="space-y-1.5 max-h-[46dvh] overflow-y-auto pr-1">
               {globalRankings.map((rk, idx) => {
                 const isUser = rk.nickname === rankingName.trim() && rk.score === score;
                 return (
@@ -313,7 +313,7 @@ export default function GameOverScreen({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5 border-t border-slate-800 pt-5">
+          <div className="grid grid-cols-1 gap-2 border-t border-slate-800 pt-4">
             <button
               onClick={handleShare}
               className="flex items-center justify-center gap-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl py-3 px-2 text-xs font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"

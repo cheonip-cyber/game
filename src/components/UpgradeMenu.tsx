@@ -61,14 +61,14 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="school-3d-panel bg-slate-900 border-2 border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-start justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <div className="school-3d-panel bg-slate-900 border border-slate-700 rounded-2xl w-full max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
           <div className="flex items-center gap-3">
             <Trophy className="w-8 h-8 text-yellow-400 animate-bounce" />
             <div>
-              <h2 className="text-xl md:text-2xl font-black text-slate-100 tracking-tight">명예 모범생 생활 기록부 (영구 강화)</h2>
+              <h2 className="text-xl font-black text-slate-100 tracking-tight">명예 모범생 생활 기록부 (영구 강화)</h2>
               <p className="text-xs text-slate-400">학업 및 생존 효율을 증가시켜 주는 명예 배지입니다.</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
         </div>
 
         {/* Upgrade list */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-900/40">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-900/40 overscroll-contain">
           {(Object.keys(UPGRADE_DETAILS) as Array<keyof UpgradeState>).map((key) => {
             const currentLevel = upgrades[key];
             const isMax = currentLevel >= MAX_LEVEL;
@@ -114,7 +114,7 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
             return (
               <div 
                 key={key} 
-                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border transition-all ${
+                className={`flex flex-col justify-between gap-4 p-4 rounded-xl border transition-all ${
                   isMax 
                     ? 'border-yellow-600/30 bg-yellow-950/5' 
                     : 'border-slate-800 bg-slate-900'
@@ -144,7 +144,7 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end sm:flex-col gap-3 sm:gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
                   {!isMax ? (
                     <>
                       <div className="text-right">

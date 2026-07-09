@@ -44,6 +44,15 @@
   -webkit-touch-callout: none;
 }
 
+.mobile-card-scroll {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-card-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .school-3d-shell {
   isolation: isolate;
   background:

@@ -1965,11 +1965,11 @@ export default function GameCanvas({
       </div>
 
       {/* 1. HUD OVERLAY PANEL (React UI absolute layout for beautiful rendering) */}
-      <div className="absolute top-2 left-0 right-0 p-4 flex flex-col gap-2.5 z-30 select-none pointer-events-none">
+      <div className="absolute top-2 left-0 right-0 px-2 py-2 flex flex-col gap-2 z-30 select-none pointer-events-none">
         {/* UPPER HUD BAR */}
-        <div className="flex justify-between items-start w-full">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-start w-full">
           {/* Leftside: Player HP / EXP Progress */}
-          <div className="flex flex-col gap-1.5 w-full max-w-[280px]">
+          <div className="flex flex-col gap-1.5 w-full min-w-0">
             {/* HP Gauge */}
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-rose-400 font-mono tracking-wider">HP</span>
@@ -2000,11 +2000,11 @@ export default function GameCanvas({
           </div>
 
           {/* Center Status Banner (MM:SS, Kills, Stage multiplier) */}
-          <div className="flex flex-col items-center gap-1 bg-slate-950/80 border border-slate-900 px-5 py-2 rounded-2xl pointer-events-auto shadow-lg backdrop-blur">
-            <span className="text-2xl font-black text-cyan-400 font-mono tracking-wider select-text">
+          <div className="col-span-2 row-start-2 flex items-center justify-between gap-2 bg-slate-950/80 border border-slate-900 px-3 py-1.5 rounded-xl pointer-events-auto shadow-lg backdrop-blur">
+            <span className="text-lg font-black text-cyan-400 font-mono tracking-wider select-text">
               {formatTime(hudTime)}
             </span>
-            <div className="flex items-center gap-2.5 text-[10px] text-slate-400 font-semibold font-mono">
+            <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-semibold font-mono">
               <span>Lv.{hudLevel}</span>
               <span className="text-slate-700">|</span>
               <span>처치 {hudKills}</span>
@@ -2014,7 +2014,7 @@ export default function GameCanvas({
           </div>
 
           {/* Rightside: Control Buttons (Pause, Fullscreen, Dash Cooldown Info) */}
-          <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="col-start-2 row-start-1 flex items-center gap-1.5 pointer-events-auto">
             {/* Fullscreen toggle button */}
             <button
               onClick={toggleFullscreen}
@@ -2034,7 +2034,7 @@ export default function GameCanvas({
         </div>
 
         {/* LOWER HUD BAR - Active Skills list */}
-        <div className="flex flex-wrap gap-2.5 mt-1">
+        <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1 mobile-card-scroll">
           {Object.entries(weaponLevels).map(([wId, lvl]) => {
             const detail = LEVEL_UP_CHOICES.find(item => item.id === wId);
             if (!detail) return null;
