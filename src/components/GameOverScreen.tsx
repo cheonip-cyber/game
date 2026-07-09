@@ -134,12 +134,13 @@ export default function GameOverScreen({
   };
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] overflow-y-auto overscroll-contain bg-slate-950 text-slate-100 p-4 md:p-8 pb-10 font-sans select-none relative">
+    <div className="school-3d-shell h-[100dvh] max-h-[100dvh] overflow-y-auto overscroll-contain bg-slate-950 text-slate-100 p-4 md:p-8 pb-10 font-sans select-none relative">
+      <div className="school-3d-hero opacity-30" aria-hidden="true" />
       <div className={`fixed top-1/4 left-1/2 -translate-x-1/2 w-[35%] h-[35%] rounded-full blur-[120px] pointer-events-none ${
         victory ? 'bg-emerald-900/25' : 'bg-rose-900/25'
       }`} />
 
-      <div className="w-full max-w-5xl mx-auto bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative z-10 grid grid-cols-1 lg:grid-cols-12">
+      <div className="school-3d-panel w-full max-w-5xl mx-auto bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative z-10 grid grid-cols-1 lg:grid-cols-12">
         <div className="lg:col-span-5 p-5 md:p-8 bg-slate-950/80 border-b lg:border-b-0 lg:border-r border-slate-800">
           <div className="text-center mb-5">
             {victory ? (

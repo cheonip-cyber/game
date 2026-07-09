@@ -24,6 +24,15 @@ interface GameCanvasProps {
 const WORLD_WIDTH = 3000;
 const WORLD_HEIGHT = 3000;
 
+function getRequiredExpForLevel(level: number): number {
+  if (level <= 2) return 30;
+  if (level <= 4) return 45;
+  if (level <= 6) return 70;
+  if (level <= 10) return 100 + level * 15;
+  if (level <= 20) return 180 + level * 30;
+  return 500 + level * 55;
+}
+
 interface Bullet {
   id: string;
   x: number;
@@ -141,6 +150,7 @@ export default function GameCanvas({
   // Pause States
   const [isPaused, setIsPaused] = useState(false);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const showLevelUpRef = useRef(false);
   const [levelUpChoices, setLevelUpChoices] = useState<InGameItem[]>([]);
   const [isDying, setIsDying] = useState(false);
   const isDyingRef = useRef(false);
@@ -150,7 +160,7 @@ export default function GameCanvas({
   const [hudMaxHp, setHudMaxHp] = useState(character.baseHp);
   const [hudLevel, setHudLevel] = useState(1);
   const [hudExp, setHudExp] = useState(0);
-  const [hudMaxExp, setHudMaxExp] = useState(100);
+  const [hudMaxExp, setHudMaxExp] = useState(30);
   const [hudTime, setHudTime] = useState(0); // seconds
   const [hudKills, setHudKills] = useState(0);
   const [hudScore, setHudScore] = useState(0);
@@ -167,7 +177,7 @@ export default function GameCanvas({
     maxHp: character.baseHp,
     level: 1,
     exp: 0,
-    maxExp: 100,
+    maxExp: 30,
     time: 0, // survival time in seconds
     kills: 0,
     score: 0,
@@ -1198,7 +1208,7 @@ export default function GameCanvas({
     let gemColor = '#22c55e'; // Standard green for swarm
 
     if (enemy.isBoss) {
-      gemValue = 60;
+      gemValue = Math.round(60 * 1.5);
       gemRadius = 9;
       gemColor = '#facc15'; // Radiant Gold
     } else if (enemy.type === 'reinforced') {
@@ -1213,6 +1223,10 @@ export default function GameCanvas({
       gemValue = 15;
       gemRadius = 5;
       gemColor = '#06b6d4'; // Glowing Cyan
+    }
+
+    if (!enemy.isBoss && stats.time < 180) {
+      gemValue = Math.round(gemValue * 1.2);
     }
 
     // Spawn EXP Gem on location
@@ -1407,12 +1421,15 @@ export default function GameCanvas({
       });
     }
 
-    // Level-up condition check
-    if (stats.exp >= stats.maxExp) {
+    let leveledUp = false;
+    while (stats.exp >= stats.maxExp) {
       stats.exp -= stats.maxExp;
-      stats.level++;
-      stats.maxExp = Math.round(stats.maxExp * 1.3 + 40); // Scaling requirement
+      stats.level += 1;
+      stats.maxExp = getRequiredExpForLevel(stats.level);
+      leveledUp = true;
+    }
 
+    if (leveledUp) {
       // Spawn level up visual effect
       floatingTextsRef.current.push({
         x: stats.playerX,
@@ -1427,12 +1444,16 @@ export default function GameCanvas({
       // Restore some HP
       stats.hp = Math.min(stats.maxHp, stats.hp + stats.maxHp * 0.15);
 
-      // Pause & Open Choices modal
-      triggerLevelUpOptions();
+      if (!showLevelUpRef.current) {
+        triggerLevelUpOptions();
+      }
     }
   };
 
   const triggerLevelUpOptions = () => {
+    if (showLevelUpRef.current) return;
+    showLevelUpRef.current = true;
+
     // Select 3 random level up items
     // Shuffle choices array
     const shuffled = [...LEVEL_UP_CHOICES].sort(() => 0.5 - Math.random());
@@ -1460,6 +1481,7 @@ export default function GameCanvas({
       setHudHp(Math.round(gameStats.current.hp));
     }
 
+    showLevelUpRef.current = false;
     setShowLevelUp(false);
   };
 

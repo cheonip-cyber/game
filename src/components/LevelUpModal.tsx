@@ -16,7 +16,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
       <div className="absolute w-96 h-96 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute w-96 h-96 bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative z-10 animate-scale-up">
+      <div className="school-3d-panel bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative z-10 animate-scale-up">
         {/* Header */}
         <div className="p-6 md:p-8 text-center bg-gradient-to-b from-slate-950 to-slate-900 border-b border-slate-800">
           <div className="flex justify-center items-center gap-2 mb-2">
@@ -54,7 +54,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
               <button
                 key={item.id}
                 onClick={() => onSelect(item)}
-                className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer relative group overflow-hidden ${borderClass}`}
+                className={`school-3d-card w-full text-left p-3.5 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer relative group overflow-hidden ${borderClass}`}
               >
                 {/* Decorative hover overlay glow */}
                 <div 
