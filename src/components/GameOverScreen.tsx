@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameScore } from '../types';
 import { Trophy, RefreshCw, Home, Share2, BarChart3, Save } from 'lucide-react';
 
@@ -41,6 +41,7 @@ export default function GameOverScreen({
 }: GameOverScreenProps) {
   const [rankingName, setRankingName] = useState(nickname);
   const [registered, setRegistered] = useState(false);
+  const registeredRef = useRef(false);
   const [globalRankings, setGlobalRankings] = useState<GameScore[]>([]);
 
   const totalDamage = Object.values(damageBreakdown).reduce((sum, d) => sum + d, 0);
@@ -86,13 +87,15 @@ export default function GameOverScreen({
   }, []);
 
   const handleRegisterRanking = () => {
-    if (registered) return;
+    if (registeredRef.current) return;
 
     const trimmedName = rankingName.trim();
     if (!trimmedName) {
       alert('등록할 이름을 기입해주세요!');
       return;
     }
+
+    registeredRef.current = true;
 
     const newScore: GameScore = {
       nickname: trimmedName,
@@ -105,20 +108,26 @@ export default function GameOverScreen({
       date: new Date().toISOString().split('T')[0],
     };
 
-    const currentRankings = getStoredRankings();
-    const updatedRankings = [newScore, ...currentRankings];
-    localStorage.setItem('school_attack_rankings', JSON.stringify(updatedRankings));
-    localStorage.setItem('school_attack_nickname', trimmedName);
+    try {
+      const currentRankings = getStoredRankings();
+      const updatedRankings = [newScore, ...currentRankings];
+      localStorage.setItem('school_attack_rankings', JSON.stringify(updatedRankings));
+      localStorage.setItem('school_attack_nickname', trimmedName);
 
-    const currentPoints = parseInt(localStorage.getItem('school_attack_points') || '0', 10);
-    const totalCumulative = parseInt(localStorage.getItem('school_attack_total_score') || '0', 10);
+      const currentPoints = Number.parseInt(localStorage.getItem('school_attack_points') || '0', 10) || 0;
+      const totalCumulative = Number.parseInt(localStorage.getItem('school_attack_total_score') || '0', 10) || 0;
 
-    localStorage.setItem('school_attack_points', (currentPoints + score).toString());
-    localStorage.setItem('school_attack_total_score', (totalCumulative + score).toString());
+      localStorage.setItem('school_attack_points', (currentPoints + score).toString());
+      localStorage.setItem('school_attack_total_score', (totalCumulative + score).toString());
 
-    setRegistered(true);
-    setGlobalRankings(buildRankingView(updatedRankings));
-    onRankingRegistered();
+      setRegistered(true);
+      setGlobalRankings(buildRankingView(updatedRankings));
+      onRankingRegistered();
+    } catch (error) {
+      registeredRef.current = false;
+      console.error('Ranking save failed', error);
+      alert('랭킹 저장에 실패했습니다. 브라우저 저장 공간을 확인해주세요.');
+    }
   };
 
   const handleShare = () => {
