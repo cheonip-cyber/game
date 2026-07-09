@@ -102,15 +102,15 @@ export default function MainScreen({
   };
 
   return (
-    <div className="school-3d-shell h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-x-hidden overflow-y-auto font-sans no-callout">
+    <div className="school-3d-shell h-[100dvh] bg-slate-950 text-slate-100 flex flex-col relative overflow-x-hidden overflow-y-auto font-sans no-callout">
       <div className="school-3d-hero" aria-hidden="true" />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/25 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-rose-900/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
 
-      <header className="relative w-full max-w-7xl mx-auto px-4 pt-6 md:pt-10 flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-900 pb-6">
-        <div className="text-center md:text-left">
-          <div className="flex items-center justify-center md:justify-start gap-2 mb-1.5">
+      <header className="relative w-full px-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex flex-col gap-3 border-b border-slate-900 pb-3">
+        <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-1.5">
             <span className="text-xs bg-rose-500/10 border border-rose-500/20 text-rose-400 px-2.5 py-0.5 rounded-full font-bold tracking-wider animate-pulse">
               RETRO SURVIVAL
             </span>
@@ -118,34 +118,32 @@ export default function MainScreen({
               MOBILE SUPPORT
             </span>
           </div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-indigo-400 to-rose-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_8px_rgba(99,102,241,0.3)]">
+          <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-indigo-400 to-rose-400 bg-clip-text text-transparent filter drop-shadow-[0_2px_8px_rgba(99,102,241,0.3)]">
             크리스의 스쿨어택!
           </h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">학교가 불량학생들과 유해환경에 침식되었습니다. 선생님이 도착할 때까지 생존하십시오!</p>
+          <p className="text-xs text-slate-400 mt-1">선생님이 도착할 때까지 학교를 지키고 생존하세요!</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 bg-slate-900/60 p-4 border border-slate-800 rounded-xl">
+        <div className="grid grid-cols-2 gap-2 bg-slate-900/60 p-3 border border-slate-800 rounded-xl">
           <div className="text-left">
             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">누적 획득 점수</div>
             <div className="text-sm font-black text-cyan-400">{totalScore.toLocaleString()} PTS</div>
           </div>
-          <div className="w-px h-8 bg-slate-800" />
           <div className="text-left">
             <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">강화 포인트</div>
             <div className="text-sm font-black text-yellow-400">{points.toLocaleString()} PTS</div>
           </div>
           <button
             onClick={() => setShowUpgrade(true)}
-            className="ml-2 flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-950 font-black px-4 py-2 rounded-lg text-xs transition-all cursor-pointer shadow-md shadow-yellow-500/10 hover:shadow-yellow-400/20"
+            className="flex items-center justify-center gap-1.5 bg-yellow-400 active:scale-95 text-slate-950 font-black px-3 py-2.5 rounded-lg text-xs transition-all cursor-pointer shadow-md"
           >
             <Settings2 className="w-3.5 h-3.5" />
             <span>영구 능력 강화</span>
           </button>
 
-          <div className="w-px h-8 bg-slate-800 hidden sm:block" />
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md"
+            className="flex items-center justify-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md"
           >
             {isFullscreen ? <Minimize className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize className="w-3.5 h-3.5 text-cyan-400" />}
             <span>{isFullscreen ? '창모드' : '전체화면'}</span>
@@ -153,10 +151,10 @@ export default function MainScreen({
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
-        <section className="lg:col-span-4 space-y-6 flex flex-col justify-between">
-          <div className="space-y-6">
-            <div className="school-3d-panel bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+      <main className="flex-1 w-full px-3 py-4 pb-28 flex flex-col gap-4 relative z-10">
+        <section className="space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="school-3d-panel bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
               <label htmlFor="nickname" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <UserCheck className="w-4 h-4 text-cyan-400" />
                 출격 대원 명찰 (닉네임)
@@ -173,7 +171,7 @@ export default function MainScreen({
               <p className="text-[10px] text-slate-500 mt-2 text-right">{nickname.length}/20</p>
             </div>
 
-            <div className="school-3d-panel bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+            <div className="school-3d-panel bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
               <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">구역 선택 (STAGES)</span>
               <div className="space-y-2.5">
                 {STAGES.map((stg) => {
@@ -205,7 +203,7 @@ export default function MainScreen({
               </div>
             </div>
 
-            <div className="school-3d-panel bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+            <div className="school-3d-panel bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
               <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">난이도 설정</span>
               <div className="grid grid-cols-2 gap-2">
                 {DIFFICULTIES.map((diff) => {
@@ -238,14 +236,14 @@ export default function MainScreen({
           </div>
         </section>
 
-        <section className="lg:col-span-8 space-y-6">
+        <section className="space-y-4">
           <div>
             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
               <Gamepad2 className="w-4 h-4 text-cyan-400" />
               출격할 학생 기체 (교복 카드 선택)
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 -mx-3 px-3 mobile-card-scroll">
               {CHARACTERS.map((char) => {
                 const isLocked = totalScore < char.unlockScore;
                 const isSelected = selectedChar.id === char.id;
@@ -261,7 +259,7 @@ export default function MainScreen({
                         setSelectedChar(char);
                       }
                     }}
-                    className={`school-3d-card relative w-full text-left rounded-2xl border p-5 flex flex-col justify-between transition-all duration-300 min-h-[300px] group ${
+                    className={`school-3d-card relative min-w-[84vw] snap-center text-left rounded-2xl border p-4 flex flex-col justify-between transition-all duration-300 min-h-[230px] group ${
                       isLocked
                         ? 'bg-slate-950/20 border-slate-900/80 cursor-not-allowed opacity-50'
                         : isSelected
@@ -332,7 +330,7 @@ export default function MainScreen({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 gap-3 pt-1">
             <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3.5">
                 <Trophy className="w-4 h-4 text-yellow-400" />
@@ -384,18 +382,16 @@ export default function MainScreen({
         </section>
       </main>
 
-      <footer className="relative w-full border-t border-slate-900 py-8 bg-slate-950/80 backdrop-blur z-20">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
+      <footer className="fixed bottom-0 left-0 right-0 w-full border-t border-slate-800 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-950/95 backdrop-blur-xl z-40">
+        <div className="px-3 flex flex-col items-center gap-1.5">
           <button
             onClick={handleStart}
-            className="school-3d-button group relative w-full max-w-md bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-slate-950 font-black text-lg py-4 px-8 rounded-2xl transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-2xl shadow-indigo-500/20 hover:shadow-indigo-500/40 border-t border-white/20 cursor-pointer text-center flex items-center justify-center gap-3"
+            className="school-3d-button group relative w-full bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500 text-slate-950 font-black text-base py-3.5 px-4 rounded-2xl transition-all active:scale-[0.98] shadow-2xl border-t border-white/20 cursor-pointer text-center flex items-center justify-center gap-2"
           >
             <Swords className="w-6 h-6 animate-pulse" />
             <span className="tracking-widest">교복 나노수트 장착 & 스쿨어택 출격!</span>
           </button>
-          <span className="text-[10px] text-slate-500 font-mono">
-            CONNECTED TO AIS-DEV CORE CLUSTER 7202
-          </span>
+          <span className="text-[9px] text-slate-500 font-mono">위 설정으로 즉시 출격</span>
         </div>
       </footer>
 

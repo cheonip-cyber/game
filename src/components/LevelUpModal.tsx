@@ -11,29 +11,29 @@ interface LevelUpModalProps {
 
 export default function LevelUpModal({ level, choices, weaponLevels, onSelect }: LevelUpModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-start justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] overflow-y-auto overscroll-contain">
       {/* Visual background lights */}
       <div className="absolute w-96 h-96 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute w-96 h-96 bg-yellow-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="school-3d-panel bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl relative z-10 animate-scale-up">
+      <div className="school-3d-panel bg-slate-900 border-2 border-slate-700 rounded-2xl w-full max-h-[calc(100dvh-1rem)] overflow-y-auto shadow-2xl relative z-10 animate-scale-up">
         {/* Header */}
-        <div className="p-6 md:p-8 text-center bg-gradient-to-b from-slate-950 to-slate-900 border-b border-slate-800">
+        <div className="p-4 text-center bg-gradient-to-b from-slate-950 to-slate-900 border-b border-slate-800">
           <div className="flex justify-center items-center gap-2 mb-2">
             <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" />
             <span className="text-xs font-black text-cyan-400 uppercase tracking-widest font-mono">성적 우수 보상 프로토콜</span>
             <Sparkles className="w-6 h-6 text-yellow-400 animate-spin" />
           </div>
-          <h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 tracking-tight drop-shadow-lg uppercase">
+          <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 tracking-tight drop-shadow-lg uppercase">
             LEVEL {level} 달성!
           </h2>
-          <p className="text-xs md:text-sm text-slate-400 mt-2">
+          <p className="text-xs text-slate-400 mt-2">
             학교 생활 평점 상승! 아래의 강화 방침 또는 지원 학용품 중 <strong className="text-yellow-400 font-bold">1가지</strong>를 선택해 교복을 진화시키십시오.
           </p>
         </div>
 
         {/* Choices cards list */}
-        <div className="p-6 md:p-8 space-y-3 bg-slate-950/40">
+        <div className="p-3 space-y-2 bg-slate-950/40">
           {choices.map((item) => {
             const currentLvl = weaponLevels[item.id] || 0;
             const isNew = currentLvl === 0;
@@ -54,7 +54,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
               <button
                 key={item.id}
                 onClick={() => onSelect(item)}
-                className={`school-3d-card w-full text-left p-3.5 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-4 cursor-pointer relative group overflow-hidden ${borderClass}`}
+                className={`school-3d-card w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer relative group overflow-hidden ${borderClass}`}
               >
                 {/* Decorative hover overlay glow */}
                 <div 
@@ -77,7 +77,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-extrabold text-sm md:text-base text-slate-100 group-hover:text-white transition-colors truncate">
+                      <h3 className="font-extrabold text-sm text-slate-100 group-hover:text-white transition-colors truncate">
                         {item.name}
                       </h3>
                       <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bgLight}`}>
@@ -98,7 +98,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
                   </div>
                 </div>
 
-                <div className="hidden sm:block shrink-0 text-right">
+                <div className="hidden shrink-0 text-right">
                   <span className="text-[9px] text-slate-500 font-bold block uppercase tracking-widest">강화 효과</span>
                   <span className="text-xs font-bold text-emerald-400 block mt-0.5 group-hover:text-emerald-300 transition-colors">
                     {item.effect}
@@ -110,7 +110,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
         </div>
 
         {/* Footer info banner */}
-        <div className="p-4 bg-slate-950 text-center border-t border-slate-800 flex items-center justify-center gap-1.5 text-xs text-slate-500 font-mono">
+        <div className="p-2.5 bg-slate-950 text-center border-t border-slate-800 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 font-mono">
           <Award className="w-4 h-4 text-slate-600 animate-pulse" />
           <span>SCHOOL ATTACK EXCELLENT STUDENT EVALUATION PROTOCOL</span>
         </div>
