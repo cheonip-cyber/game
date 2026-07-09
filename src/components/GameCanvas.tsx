@@ -235,6 +235,7 @@ export default function GameCanvas({
   const floorTileRef = useRef<HTMLCanvasElement | null>(null);
   const floorPatternRef = useRef<CanvasPattern | null>(null);
   const playerFacingRef = useRef<PlayerFacing>('down');
+  const playerMotionRef = useRef({ moving: false, vx: 0, vy: 0 });
 
   const timeMultiplier = 1;
 
@@ -855,6 +856,11 @@ export default function GameCanvas({
 
           // Dash runtime logic
           if (stats.isDashing) {
+            playerMotionRef.current = {
+              moving: true,
+              vx: stats.dashVx,
+              vy: stats.dashVy,
+            };
             if (now > stats.dashEndTime) {
               stats.isDashing = false;
             } else {
@@ -882,6 +888,7 @@ export default function GameCanvas({
           if (!stats.isDashing) {
             let moveX = 0;
             let moveY = 0;
+            playerMotionRef.current = { moving: false, vx: 0, vy: 0 };
 
             // Keyboard input detection
             if (keysPressed.current['w'] || keysPressed.current['arrowup']) moveY = -1;
@@ -904,6 +911,11 @@ export default function GameCanvas({
             // Apply movement with normalize to prevent diagonal warp speed
             if (moveX !== 0 || moveY !== 0) {
               const len = Math.sqrt(moveX * moveX + moveY * moveY);
+              playerMotionRef.current = {
+                moving: true,
+                vx: moveX / len,
+                vy: moveY / len,
+              };
               playerFacingRef.current = Math.abs(moveX) > Math.abs(moveY)
                 ? moveX < 0 ? 'left' : 'right'
                 : moveY < 0 ? 'up' : 'down';
@@ -2272,6 +2284,30 @@ export default function GameCanvas({
     const heroImage = heroImageRef.current;
     const playerScreenX = stats.playerX - cameraX;
     const playerScreenY = stats.playerY - cameraY;
+    const motion = playerMotionRef.current;
+    const animationTime = performance.now();
+    const stepPhase = animationTime / (stats.isDashing ? 55 : 105);
+    const bob = motion.moving ? Math.sin(stepPhase) * 3 : Math.sin(animationTime / 420) * 1.2;
+    const squash = motion.moving ? Math.abs(Math.sin(stepPhase)) * 0.035 : Math.sin(animationTime / 520) * 0.012;
+    const lean = stats.isDashing
+      ? Math.max(-0.24, Math.min(0.24, motion.vx * 0.18))
+      : Math.max(-0.1, Math.min(0.1, motion.vx * 0.07));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(
+      playerScreenX,
+      playerScreenY + 14,
+      stats.isDashing ? 30 : 23,
+      stats.isDashing ? 8 : 6,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fillStyle = stats.isDashing ? 'rgba(103, 232, 249, 0.28)' : 'rgba(2, 6, 23, 0.42)';
+    ctx.fill();
+    ctx.restore();
+
     if (heroImage) {
       const heroIndex = character.id === 'haeun' ? 2 : character.id === 'minwoo' ? 1 : 0;
       const sourceWidth = heroImage.width / 3;
@@ -2285,17 +2321,39 @@ export default function GameCanvas({
       const spriteSize = stats.isDashing ? 76 : 68;
       ctx.shadowBlur = stats.isDashing ? 28 : 16;
       ctx.shadowColor = character.imageColor;
-      ctx.drawImage(
-        heroImage,
-        heroIndex * sourceWidth,
-        facingRow[playerFacingRef.current] * sourceHeight,
-        sourceWidth,
-        sourceHeight,
-        playerScreenX - spriteSize / 2,
-        playerScreenY - spriteSize * 0.68,
-        spriteSize,
-        spriteSize,
-      );
+      const drawHero = (x: number, y: number, alpha = 1, scale = 1) => {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x, y + bob);
+        ctx.rotate(lean);
+        ctx.scale(1 + squash, 1 - squash);
+        ctx.drawImage(
+          heroImage,
+          heroIndex * sourceWidth,
+          facingRow[playerFacingRef.current] * sourceHeight,
+          sourceWidth,
+          sourceHeight,
+          -spriteSize * scale / 2,
+          -spriteSize * scale * 0.68,
+          spriteSize * scale,
+          spriteSize * scale,
+        );
+        ctx.restore();
+      };
+
+      if (stats.isDashing) {
+        const trailLength = 16;
+        for (let i = 3; i >= 1; i -= 1) {
+          const speed = Math.hypot(motion.vx, motion.vy) || 1;
+          drawHero(
+            playerScreenX - (motion.vx / speed) * trailLength * i,
+            playerScreenY - (motion.vy / speed) * trailLength * i,
+            0.08 * (4 - i),
+            1 - i * 0.035,
+          );
+        }
+      }
+      drawHero(playerScreenX, playerScreenY);
     } else {
       ctx.beginPath();
       ctx.arc(playerScreenX, playerScreenY, stats.playerRadius, 0, Math.PI * 2);
