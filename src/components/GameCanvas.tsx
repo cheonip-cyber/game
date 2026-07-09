@@ -118,6 +118,8 @@ export default function GameCanvas({
 }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const heroImageRef = useRef<HTMLImageElement | null>(null);
+  const expPrismImageRef = useRef<HTMLImageElement | null>(null);
 
   // Time speed multiplier for testing (x1, x5, x20)
   const [timeMultiplier, setTimeMultiplier] = useState<number>(1);
@@ -154,6 +156,22 @@ export default function GameCanvas({
   const [levelUpChoices, setLevelUpChoices] = useState<InGameItem[]>([]);
   const [isDying, setIsDying] = useState(false);
   const isDyingRef = useRef(false);
+  const lastBossTierRef = useRef(0);
+  const lastHordeTierRef = useRef(0);
+
+  useEffect(() => {
+    const heroImage = new Image();
+    heroImage.src = '/assets/game/student-heroes.png';
+    heroImage.onload = () => {
+      heroImageRef.current = heroImage;
+    };
+
+    const expPrismImage = new Image();
+    expPrismImage.src = '/assets/game/exp-prism.png';
+    expPrismImage.onload = () => {
+      expPrismImageRef.current = expPrismImage;
+    };
+  }, []);
 
   // HUD sync states
   const [hudHp, setHudHp] = useState(character.baseHp);
@@ -462,7 +480,10 @@ export default function GameCanvas({
   }, [canvasDimensions, isPaused, showLevelUp]);
 
   // Spawn Enemies algorithm
-  const spawnEnemy = (type: 'swarm' | 'blaster' | 'hazard' | 'reinforced' | 'boss') => {
+  const spawnEnemy = (
+    type: 'swarm' | 'blaster' | 'hazard' | 'reinforced' | 'boss',
+    clusterAnchor?: { x: number; y: number },
+  ) => {
     const stats = gameStats.current;
     const width = canvasDimensions.width;
     const height = canvasDimensions.height;
@@ -470,8 +491,12 @@ export default function GameCanvas({
     // Spawn slightly outside viewport bounds
     const angle = Math.random() * Math.PI * 2;
     const distance = Math.max(width, height) / 2 + 50;
-    let x = stats.playerX + Math.cos(angle) * distance;
-    let y = stats.playerY + Math.sin(angle) * distance;
+    let x = clusterAnchor
+      ? clusterAnchor.x + (Math.random() - 0.5) * 130
+      : stats.playerX + Math.cos(angle) * distance;
+    let y = clusterAnchor
+      ? clusterAnchor.y + (Math.random() - 0.5) * 130
+      : stats.playerY + Math.sin(angle) * distance;
     
     // Clamp to school campus limits
     x = Math.max(40, Math.min(WORLD_WIDTH - 40, x));
@@ -498,8 +523,10 @@ export default function GameCanvas({
     if (stageId === 'middle') stageMult = 1.6;
     else if (stageId === 'high') stageMult = 2.5;
 
-    const scaleHp = (val: number) => Math.round(val * mult * stageMult);
-    const scaleDmg = (val: number) => Math.round(val * (1 + (mult - 1) * 0.4) * stageMult);
+    const levelHpScale = 1 + Math.max(0, stats.level - 1) * 0.08;
+    const levelDamageScale = 1 + Math.max(0, stats.level - 1) * 0.035;
+    const scaleHp = (val: number) => Math.round(val * mult * stageMult * levelHpScale);
+    const scaleDmg = (val: number) => Math.round(val * (1 + (mult - 1) * 0.4) * stageMult * levelDamageScale);
 
     switch (type) {
       case 'swarm':
@@ -550,6 +577,8 @@ export default function GameCanvas({
         attackCooldown = 500;
         break;
     }
+
+    speed += Math.min(1.8, Math.max(0, stats.level - 1) * 0.03);
 
     // Shapes and slight color modifications for variety
     let shape: 'circle' | 'square' | 'triangle' | 'pentagon' | 'star' | 'cross' | 'hexagon' = 'circle';
@@ -708,53 +737,70 @@ export default function GameCanvas({
           stats.playerX = Math.max(stats.playerRadius, Math.min(WORLD_WIDTH - stats.playerRadius, stats.playerX));
           stats.playerY = Math.max(stats.playerRadius, Math.min(WORLD_HEIGHT - stats.playerRadius, stats.playerY));
 
-          // 4. Enemy Spawning Wave logic
+          // 4. Level and survival time continuously raise enemy pressure.
           enemySpawnTimer += delta;
-          
-          // Spawn rates scale over time (shorter interval means faster spawning, with 1.5x spawn frequency boost)
-          const spawnInterval = Math.max(0.3, (1.8 - Math.floor(stats.time / 60) * 0.15) / 1.15);
+
+          const levelTier = Math.floor((stats.level - 1) / 3);
+          const timeTier = Math.floor(stats.time / 90);
+          const spawnInterval = Math.max(0.18, 1.25 - levelTier * 0.08 - timeTier * 0.035);
           if (enemySpawnTimer >= spawnInterval) {
             enemySpawnTimer = 0;
 
-            // Determine group spawn count based on survival time (scaled up 1.5x, from 3 to 9)
-            const baseGroupSize = Math.floor((2 + Math.floor(stats.time / 90)) * 1.5);
-            const spawnCount = Math.min(10, baseGroupSize);
+            const spawnCount = Math.min(24, 2 + levelTier + Math.floor(timeTier / 2));
 
             for (let i = 0; i < spawnCount; i++) {
-              // Randomly decide which enemy type based on survival time
               const r = Math.random();
-              if (stats.time < 60) {
-                // First 1 min: mostly swarms, occasionally a blaster
+              if (stats.level < 4) {
                 spawnEnemy(r < 0.85 ? 'swarm' : 'blaster');
-              } else if (stats.time < 180) {
-                // 1-3 mins: swarms, blasters, occasional smartphone hazard
+              } else if (stats.level < 8) {
                 if (r < 0.5) spawnEnemy('swarm');
                 else if (r < 0.8) spawnEnemy('blaster');
                 else spawnEnemy('hazard');
-              } else if (stats.time < 360) {
-                // 3-6 mins: include reinforced smoke monster
-                if (r < 0.4) spawnEnemy('swarm');
-                else if (r < 0.7) spawnEnemy('blaster');
-                else if (r < 0.9) spawnEnemy('hazard');
+              } else if (stats.level < 15) {
+                if (r < 0.3) spawnEnemy('swarm');
+                else if (r < 0.58) spawnEnemy('blaster');
+                else if (r < 0.84) spawnEnemy('hazard');
                 else spawnEnemy('reinforced');
               } else {
-                // 6 mins+: highly aggressive all types
-                if (r < 0.3) spawnEnemy('reinforced');
-                else if (r < 0.6) spawnEnemy('hazard');
-                else if (r < 0.8) spawnEnemy('blaster');
+                if (r < 0.38) spawnEnemy('reinforced');
+                else if (r < 0.68) spawnEnemy('hazard');
+                else if (r < 0.88) spawnEnemy('blaster');
                 else spawnEnemy('swarm');
               }
             }
           }
 
-          // Trigger Boss Spawn every 3 minutes (180s, 360s, 540s)
-          const currentThreeMin = Math.floor(stats.time / 180);
-          if (currentThreeMin > 0 && Math.floor((stats.time - delta) / 180) < currentThreeMin) {
-            // Warning Flash
+          const hordeTier = Math.floor(stats.level / 5);
+          if (hordeTier > lastHordeTierRef.current) {
+            lastHordeTierRef.current = hordeTier;
+            const hordeAngle = Math.random() * Math.PI * 2;
+            const hordeDistance = Math.max(canvasDimensions.width, canvasDimensions.height) / 2 + 80;
+            const anchor = {
+              x: stats.playerX + Math.cos(hordeAngle) * hordeDistance,
+              y: stats.playerY + Math.sin(hordeAngle) * hordeDistance,
+            };
+            const hordeSize = Math.min(42, 14 + hordeTier * 4);
+            for (let i = 0; i < hordeSize; i++) {
+              spawnEnemy(i % 7 === 0 && stats.level >= 10 ? 'reinforced' : 'swarm', anchor);
+            }
             floatingTextsRef.current.push({
-              x: canvasDimensions.width / 2,
-              y: canvasDimensions.height / 3,
-              text: '⚠️ 경고: 학교 규율 파괴 단속 위반 주임쌤 보스 출현!',
+              x: stats.playerX,
+              y: stats.playerY - 90,
+              text: `⚠️ Lv.${stats.level} 대규모 군집 접근!`,
+              color: '#fb7185',
+              life: 0,
+              maxLife: 120,
+              isCritical: true,
+            });
+          }
+
+          const bossTier = Math.floor(stats.level / 10);
+          if (bossTier > lastBossTierRef.current) {
+            lastBossTierRef.current = bossTier;
+            floatingTextsRef.current.push({
+              x: stats.playerX,
+              y: stats.playerY - 120,
+              text: `👹 Lv.${bossTier * 10} 보스 출현!`,
               color: '#f43f5e',
               life: 0,
               maxLife: 120,
@@ -1531,14 +1577,30 @@ export default function GameCanvas({
     const cameraX = Math.max(0, Math.min(WORLD_WIDTH - canvas.width, stats.playerX - canvas.width / 2));
     const cameraY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, stats.playerY - canvas.height / 2));
 
-    // Clear Canvas
-    ctx.fillStyle = '#020617'; // slate-950 background
+    // Stage-specific clean school floors with a difficulty tint.
+    const floorPalette = stageId === 'elementary'
+      ? { top: '#164e63', bottom: '#082f49', tile: '#67e8f915', line: '#a5f3fc22' }
+      : stageId === 'middle'
+        ? { top: '#1e3a5f', bottom: '#111827', tile: '#93c5fd12', line: '#bfdbfe20' }
+        : { top: '#3b1d52', bottom: '#170f2b', tile: '#e9d5ff12', line: '#f5d0fe20' };
+    const difficultyTint = difficulty === '해골'
+      ? 'rgba(127, 29, 29, 0.30)'
+      : difficulty === '상'
+        ? 'rgba(124, 45, 18, 0.18)'
+        : difficulty === '중'
+          ? 'rgba(113, 63, 18, 0.12)'
+          : 'rgba(15, 23, 42, 0)';
+    const floorGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    floorGradient.addColorStop(0, floorPalette.top);
+    floorGradient.addColorStop(1, floorPalette.bottom);
+    ctx.fillStyle = floorGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = difficultyTint;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Decorative floor grid inside game field (Scrolling aware!)
-    ctx.strokeStyle = '#0f172a'; // slate-900 grid lines
+    ctx.strokeStyle = floorPalette.line;
     ctx.lineWidth = 1;
-    const gridSize = 80;
+    const gridSize = 120;
     
     const startX = Math.floor(cameraX / gridSize) * gridSize;
     const startY = Math.floor(cameraY / gridSize) * gridSize;
@@ -1546,6 +1608,12 @@ export default function GameCanvas({
     const endY = startY + canvas.height + gridSize;
 
     for (let x = startX; x < endX; x += gridSize) {
+      for (let y = startY; y < endY; y += gridSize) {
+        if (((x / gridSize) + (y / gridSize)) % 2 === 0) {
+          ctx.fillStyle = floorPalette.tile;
+          ctx.fillRect(x - cameraX, y - cameraY, gridSize, gridSize);
+        }
+      }
       ctx.beginPath();
       ctx.moveTo(x - cameraX, 0);
       ctx.lineTo(x - cameraX, canvas.height);
@@ -1591,26 +1659,51 @@ export default function GameCanvas({
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Screen flash visual line representing lightning bolt
-        ctx.beginPath();
-        ctx.moveTo(s.x - cameraX, 0);
-        ctx.lineTo(s.x - cameraX, s.y - cameraY);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 6;
-        ctx.stroke();
+        // Layered jagged lightning bolts for a stronger mobile-readable impact.
+        for (let bolt = 0; bolt < 3; bolt++) {
+          ctx.beginPath();
+          ctx.moveTo(s.x - cameraX + (bolt - 1) * 9, 0);
+          const segments = 7;
+          for (let segment = 1; segment <= segments; segment++) {
+            const progress = segment / segments;
+            const jitter = segment === segments ? 0 : (Math.random() - 0.5) * 30;
+            ctx.lineTo(
+              s.x - cameraX + (bolt - 1) * 9 + jitter,
+              (s.y - cameraY) * progress,
+            );
+          }
+          ctx.strokeStyle = bolt === 1 ? '#ffffff' : '#fde047';
+          ctx.lineWidth = bolt === 1 ? 7 : 3;
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = '#facc15';
+          ctx.stroke();
+        }
       }
       ctx.restore();
     });
 
-    // 2. Draw Experience Gems
+    // 2. Draw Experience Prisms
     gemsRef.current.forEach((g) => {
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(g.x - cameraX, g.y - cameraY, g.radius, 0, Math.PI * 2);
-      ctx.fillStyle = g.color;
-      ctx.shadowBlur = 8;
+      const gx = g.x - cameraX;
+      const gy = g.y - cameraY;
+      const prismSize = Math.max(18, g.radius * 3.2);
+      ctx.translate(gx, gy);
+      ctx.rotate(Math.sin(Date.now() / 350 + g.x * 0.01) * 0.18);
+      ctx.shadowBlur = 14;
       ctx.shadowColor = g.color;
-      ctx.fill();
+      if (expPrismImageRef.current) {
+        ctx.drawImage(expPrismImageRef.current, -prismSize / 2, -prismSize / 2, prismSize, prismSize);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, -prismSize / 2);
+        ctx.lineTo(prismSize / 2, 0);
+        ctx.lineTo(0, prismSize / 2);
+        ctx.lineTo(-prismSize / 2, 0);
+        ctx.closePath();
+        ctx.fillStyle = g.color;
+        ctx.fill();
+      }
       ctx.restore();
     });
 
@@ -1724,15 +1817,56 @@ export default function GameCanvas({
       ctx.restore();
     });
 
-    // 4. Draw Projectiles
+    // 4. Draw Projectiles with weapon-specific neon silhouettes and trails.
     bulletsRef.current.forEach((b) => {
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(b.x - cameraX, b.y - cameraY, b.radius, 0, Math.PI * 2);
-      ctx.fillStyle = b.color;
-      ctx.shadowBlur = 10;
+      const bx = b.x - cameraX;
+      const by = b.y - cameraY;
+      const angle = Math.atan2(b.vy, b.vx);
+      ctx.translate(bx, by);
+      ctx.rotate(angle);
+      ctx.shadowBlur = b.type === 'chalk' ? 22 : 14;
       ctx.shadowColor = b.color;
-      ctx.fill();
+      if (b.type === 'pencil') {
+        ctx.strokeStyle = `${b.color}88`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-22, 0);
+        ctx.lineTo(-5, 0);
+        ctx.stroke();
+        ctx.fillStyle = '#fde68a';
+        ctx.fillRect(-7, -2.5, 13, 5);
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(5, -4);
+        ctx.lineTo(5, 4);
+        ctx.closePath();
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      } else if (b.type === 'chalk') {
+        ctx.strokeStyle = `${b.color}99`;
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.moveTo(-26, 0);
+        ctx.lineTo(-4, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(0, -7);
+        ctx.lineTo(-6, 0);
+        ctx.lineTo(0, 7);
+        ctx.closePath();
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = b.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = b.color;
+        ctx.fill();
+      }
       ctx.restore();
     });
 
@@ -1776,27 +1910,34 @@ export default function GameCanvas({
     ctx.lineWidth = stats.isDashing ? 3 : 1;
     ctx.stroke();
 
-    // Core Player Avatar
-    ctx.beginPath();
-    ctx.arc(stats.playerX - cameraX, stats.playerY - cameraY, stats.playerRadius, 0, Math.PI * 2);
-    ctx.fillStyle = character.imageColor;
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = character.imageColor;
-    ctx.fill();
-
-    // Student Glasses / Eye wear detail to emphasize School theme!
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(stats.playerX - cameraX - 10, stats.playerY - cameraY - 4, 7, 5); // left glass
-    ctx.fillRect(stats.playerX - cameraX + 3, stats.playerY - cameraY - 4, 7, 5);  // right glass
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(stats.playerX - cameraX - 7, stats.playerY - cameraY - 2, 2, 2);
-    ctx.fillRect(stats.playerX - cameraX + 6, stats.playerY - cameraY - 2, 2, 2);
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(stats.playerX - cameraX - 3, stats.playerY - cameraY - 2);
-    ctx.lineTo(stats.playerX - cameraX + 3, stats.playerY - cameraY - 2);
-    ctx.stroke();
+    const heroImage = heroImageRef.current;
+    const playerScreenX = stats.playerX - cameraX;
+    const playerScreenY = stats.playerY - cameraY;
+    if (heroImage) {
+      const heroIndex = character.id === 'haeun' ? 2 : character.id === 'minwoo' ? 1 : 0;
+      const sourceWidth = heroImage.width / 3;
+      const spriteSize = stats.isDashing ? 76 : 68;
+      ctx.shadowBlur = stats.isDashing ? 28 : 16;
+      ctx.shadowColor = character.imageColor;
+      ctx.drawImage(
+        heroImage,
+        heroIndex * sourceWidth,
+        0,
+        sourceWidth,
+        heroImage.height,
+        playerScreenX - spriteSize / 2,
+        playerScreenY - spriteSize * 0.68,
+        spriteSize,
+        spriteSize,
+      );
+    } else {
+      ctx.beginPath();
+      ctx.arc(playerScreenX, playerScreenY, stats.playerRadius, 0, Math.PI * 2);
+      ctx.fillStyle = character.imageColor;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = character.imageColor;
+      ctx.fill();
+    }
 
     ctx.restore();
 
