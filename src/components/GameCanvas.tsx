@@ -108,6 +108,8 @@ interface StrikeArea {
   type: 'mother';
 }
 
+type PlayerFacing = 'down' | 'left' | 'right' | 'up';
+
 export default function GameCanvas({
   character,
   stageId,
@@ -120,6 +122,7 @@ export default function GameCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const heroImageRef = useRef<HTMLImageElement | null>(null);
   const expPrismImageRef = useRef<HTMLImageElement | null>(null);
+  const playerFacingRef = useRef<PlayerFacing>('down');
 
   // Time speed multiplier for testing (x1, x5, x20)
   const [timeMultiplier, setTimeMultiplier] = useState<number>(1);
@@ -161,7 +164,7 @@ export default function GameCanvas({
 
   useEffect(() => {
     const heroImage = new Image();
-    heroImage.src = '/assets/game/student-heroes.png';
+    heroImage.src = '/assets/game/student-heroes-directional.png';
     heroImage.onload = () => {
       heroImageRef.current = heroImage;
     };
@@ -353,6 +356,9 @@ export default function GameCanvas({
     const length = Math.sqrt(dx * dx + dy * dy);
     dx /= length;
     dy /= length;
+    playerFacingRef.current = Math.abs(dx) > Math.abs(dy)
+      ? dx < 0 ? 'left' : 'right'
+      : dy < 0 ? 'up' : 'down';
 
     // Activate Dash
     stats.isDashing = true;
@@ -728,6 +734,9 @@ export default function GameCanvas({
             // Apply movement with normalize to prevent diagonal warp speed
             if (moveX !== 0 || moveY !== 0) {
               const len = Math.sqrt(moveX * moveX + moveY * moveY);
+              playerFacingRef.current = Math.abs(moveX) > Math.abs(moveY)
+                ? moveX < 0 ? 'left' : 'right'
+                : moveY < 0 ? 'up' : 'down';
               stats.playerX += (moveX / len) * stats.speed * delta * 60;
               stats.playerY += (moveY / len) * stats.speed * delta * 60;
             }
@@ -1916,20 +1925,46 @@ export default function GameCanvas({
     if (heroImage) {
       const heroIndex = character.id === 'haeun' ? 2 : character.id === 'minwoo' ? 1 : 0;
       const sourceWidth = heroImage.width / 3;
+      const sourceHeight = heroImage.height / 4;
+      const facingRow: Record<PlayerFacing, number> = {
+        down: 0,
+        left: 1,
+        right: 2,
+        up: 3,
+      };
+      const shouldFlipSprite = character.id === 'haeun' && playerFacingRef.current === 'left';
       const spriteSize = stats.isDashing ? 76 : 68;
       ctx.shadowBlur = stats.isDashing ? 28 : 16;
       ctx.shadowColor = character.imageColor;
-      ctx.drawImage(
-        heroImage,
-        heroIndex * sourceWidth,
-        0,
-        sourceWidth,
-        heroImage.height,
-        playerScreenX - spriteSize / 2,
-        playerScreenY - spriteSize * 0.68,
-        spriteSize,
-        spriteSize,
-      );
+      if (shouldFlipSprite) {
+        ctx.save();
+        ctx.translate(playerScreenX, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          heroImage,
+          heroIndex * sourceWidth,
+          facingRow[playerFacingRef.current] * sourceHeight,
+          sourceWidth,
+          sourceHeight,
+          -spriteSize / 2,
+          playerScreenY - spriteSize * 0.68,
+          spriteSize,
+          spriteSize,
+        );
+        ctx.restore();
+      } else {
+        ctx.drawImage(
+          heroImage,
+          heroIndex * sourceWidth,
+          facingRow[playerFacingRef.current] * sourceHeight,
+          sourceWidth,
+          sourceHeight,
+          playerScreenX - spriteSize / 2,
+          playerScreenY - spriteSize * 0.68,
+          spriteSize,
+          spriteSize,
+        );
+      }
     } else {
       ctx.beginPath();
       ctx.arc(playerScreenX, playerScreenY, stats.playerRadius, 0, Math.PI * 2);
