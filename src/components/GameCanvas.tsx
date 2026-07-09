@@ -157,7 +157,7 @@ export default function GameCanvas({
   const [isDying, setIsDying] = useState(false);
   const isDyingRef = useRef(false);
   const lastBossTierRef = useRef(0);
-  const lastHordeTierRef = useRef(0);
+  const lastHordeWaveRef = useRef(0);
 
   useEffect(() => {
     const heroImage = new Image();
@@ -770,16 +770,16 @@ export default function GameCanvas({
             }
           }
 
-          const hordeTier = Math.floor(stats.level / 5);
-          if (hordeTier > lastHordeTierRef.current) {
-            lastHordeTierRef.current = hordeTier;
+          const hordeWave = stats.level >= 10 ? Math.floor((stats.level - 5) / 5) : 0;
+          if (hordeWave > lastHordeWaveRef.current) {
+            lastHordeWaveRef.current = hordeWave;
             const hordeAngle = Math.random() * Math.PI * 2;
             const hordeDistance = Math.max(canvasDimensions.width, canvasDimensions.height) / 2 + 80;
             const anchor = {
               x: stats.playerX + Math.cos(hordeAngle) * hordeDistance,
               y: stats.playerY + Math.sin(hordeAngle) * hordeDistance,
             };
-            const hordeSize = Math.min(42, 14 + hordeTier * 4);
+            const hordeSize = Math.min(50, hordeWave * 10);
             for (let i = 0; i < hordeSize; i++) {
               spawnEnemy(i % 7 === 0 && stats.level >= 10 ? 'reinforced' : 'swarm', anchor);
             }
