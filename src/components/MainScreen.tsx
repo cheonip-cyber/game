@@ -102,7 +102,8 @@ export default function MainScreen({
   };
 
   return (
-    <div className="h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-x-hidden overflow-y-auto font-sans no-callout">
+    <div className="school-3d-shell h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-x-hidden overflow-y-auto font-sans no-callout">
+      <div className="school-3d-hero" aria-hidden="true" />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/25 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-rose-900/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
@@ -155,7 +156,7 @@ export default function MainScreen({
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         <section className="lg:col-span-4 space-y-6 flex flex-col justify-between">
           <div className="space-y-6">
-            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+            <div className="school-3d-panel bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
               <label htmlFor="nickname" className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                 <UserCheck className="w-4 h-4 text-cyan-400" />
                 출격 대원 명찰 (닉네임)
@@ -172,7 +173,7 @@ export default function MainScreen({
               <p className="text-[10px] text-slate-500 mt-2 text-right">{nickname.length}/20</p>
             </div>
 
-            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+            <div className="school-3d-panel bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
               <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">구역 선택 (STAGES)</span>
               <div className="space-y-2.5">
                 {STAGES.map((stg) => {
@@ -204,7 +205,7 @@ export default function MainScreen({
               </div>
             </div>
 
-            <div className="bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
+            <div className="school-3d-panel bg-slate-900/40 p-5 rounded-2xl border border-slate-800/80">
               <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">난이도 설정</span>
               <div className="grid grid-cols-2 gap-2">
                 {DIFFICULTIES.map((diff) => {
@@ -250,14 +251,17 @@ export default function MainScreen({
                 const isSelected = selectedChar.id === char.id;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={char.id}
+                    disabled={isLocked}
+                    aria-pressed={isSelected}
                     onClick={() => {
                       if (!isLocked) {
                         setSelectedChar(char);
                       }
                     }}
-                    className={`relative rounded-2xl border p-5 flex flex-col justify-between transition-all duration-300 min-h-[300px] group ${
+                    className={`school-3d-card relative w-full text-left rounded-2xl border p-5 flex flex-col justify-between transition-all duration-300 min-h-[300px] group ${
                       isLocked
                         ? 'bg-slate-950/20 border-slate-900/80 cursor-not-allowed opacity-50'
                         : isSelected
@@ -322,7 +326,7 @@ export default function MainScreen({
                         <span className="text-[10px] text-slate-400 leading-snug mt-0.5 block">{char.specialSkillDesc}</span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -384,7 +388,7 @@ export default function MainScreen({
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
           <button
             onClick={handleStart}
-            className="group relative w-full max-w-md bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-slate-950 font-black text-lg py-4 px-8 rounded-2xl transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-2xl shadow-indigo-500/20 hover:shadow-indigo-500/40 border-t border-white/20 cursor-pointer text-center flex items-center justify-center gap-3"
+            className="school-3d-button group relative w-full max-w-md bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500 hover:from-cyan-400 hover:to-rose-400 text-slate-950 font-black text-lg py-4 px-8 rounded-2xl transition-all duration-300 hover:scale-[1.03] active:scale-95 shadow-2xl shadow-indigo-500/20 hover:shadow-indigo-500/40 border-t border-white/20 cursor-pointer text-center flex items-center justify-center gap-3"
           >
             <Swords className="w-6 h-6 animate-pulse" />
             <span className="tracking-widest">교복 나노수트 장착 & 스쿨어택 출격!</span>
