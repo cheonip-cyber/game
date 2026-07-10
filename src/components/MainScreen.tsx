@@ -14,6 +14,8 @@ interface MainScreenProps {
   totalScore: number;
   points: number;
   upgrades: UpgradeState;
+  unlockedCharacterIds: string[];
+  onUnlockCharacter: (character: Character) => boolean;
   onUpgrade: (key: keyof UpgradeState, cost: number) => void;
   onResetUpgrades: () => void;
 }
@@ -23,6 +25,8 @@ export default function MainScreen({
   totalScore,
   points,
   upgrades,
+  unlockedCharacterIds,
+  onUnlockCharacter,
   onUpgrade,
   onResetUpgrades,
 }: MainScreenProps) {
@@ -36,6 +40,7 @@ export default function MainScreen({
   const [challenge, setChallenge] = useState('');
   const [localRankings, setLocalRankings] = useState<GameScore[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [unlockingCharacterId, setUnlockingCharacterId] = useState<string | null>(null);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -70,12 +75,6 @@ export default function MainScreen({
       } catch (e) {
         console.error(e);
       }
-    } else {
-      const dummyRanks: GameScore[] = [
-        { nickname: '학업우수자', score: 12000, survivalTime: 600, kills: 450, level: 18, difficulty: '중', stage: '초등학교 구역', date: '2026-07-01' },
-        { nickname: '선도위원장', score: 8500, survivalTime: 420, kills: 310, level: 12, difficulty: '하', stage: '초등학교 구역', date: '2026-07-03' },
-      ];
-      setLocalRankings(dummyRanks);
     }
   }, []);
 
@@ -88,8 +87,8 @@ export default function MainScreen({
 
     localStorage.setItem('school_attack_nickname', trimmedNickname);
 
-    if (totalScore < selectedChar.unlockScore) {
-      alert(`이 캐릭터는 아직 잠겨있습니다! 필요한 누적 점수: ${selectedChar.unlockScore.toLocaleString()} (현재: ${totalScore.toLocaleString()})`);
+    if (!unlockedCharacterIds.includes(selectedChar.id)) {
+      alert('잠금 해제 후 출격할 수 있는 캐릭터입니다.');
       return;
     }
 
@@ -245,23 +244,29 @@ export default function MainScreen({
 
             <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-3 -mx-3 px-3 mobile-card-scroll">
               {CHARACTERS.map((char) => {
-                const isLocked = totalScore < char.unlockScore;
+                const isLocked = !unlockedCharacterIds.includes(char.id);
+                const canUnlock = isLocked && points >= char.unlockScore;
                 const isSelected = selectedChar.id === char.id;
 
                 return (
                   <button
                     type="button"
                     key={char.id}
-                    disabled={isLocked}
                     aria-pressed={isSelected}
                     onClick={() => {
-                      if (!isLocked) {
+                      if (isLocked && canUnlock && onUnlockCharacter(char)) {
+                        setUnlockingCharacterId(char.id);
+                        setSelectedChar(char);
+                        window.setTimeout(() => setUnlockingCharacterId(null), 1200);
+                      } else if (!isLocked) {
                         setSelectedChar(char);
                       }
                     }}
                     className={`school-3d-card relative min-w-[84vw] snap-center text-left rounded-2xl border p-4 flex flex-col justify-between transition-all duration-300 min-h-[230px] group ${
                       isLocked
-                        ? 'bg-slate-950/20 border-slate-900/80 cursor-not-allowed opacity-50'
+                        ? canUnlock
+                          ? 'bg-purple-950/40 border-yellow-400 cursor-pointer shadow-[0_0_24px_rgba(250,204,21,0.25)]'
+                          : 'bg-slate-950/30 border-slate-900/80 cursor-not-allowed opacity-60'
                         : isSelected
                         ? 'border-2 bg-slate-900/80 shadow-2xl scale-[1.02]'
                         : 'border-slate-800 bg-slate-900/30 hover:border-slate-700 cursor-pointer'
@@ -272,13 +277,24 @@ export default function MainScreen({
                     }}
                   >
                     {isLocked && (
-                      <div className="absolute inset-0 bg-slate-950/80 rounded-2xl flex flex-col items-center justify-center p-4 z-20 text-center">
-                        <Lock className="w-8 h-8 text-slate-500 mb-2 animate-bounce" />
-                        <span className="text-xs font-bold text-slate-400 block mb-1">교내 징계 해제 중</span>
-                        <span className="text-[10px] text-rose-400 font-black">
-                          필요 누적 점수:<br />
+                      <div className={`absolute inset-0 rounded-2xl flex flex-col items-center justify-center p-4 z-10 text-center ${canUnlock ? 'bg-purple-950/75' : 'bg-slate-950/85'}`}>
+                        <Lock className={`w-8 h-8 mb-2 ${canUnlock ? 'text-yellow-300 animate-bounce' : 'text-slate-500'}`} />
+                        <span className={`text-sm font-black block mb-1 ${canUnlock ? 'text-yellow-200' : 'text-slate-400'}`}>
+                          {canUnlock ? '잠금 해제 가능!' : '잠긴 캐릭터'}
+                        </span>
+                        <span className={`text-xs font-black ${canUnlock ? 'text-white' : 'text-rose-400'}`}>
+                          {canUnlock ? '카드를 눌러 직접 해제' : '필요 포인트'}<br />
                           {char.unlockScore.toLocaleString()} PTS
                         </span>
+                      </div>
+                    )}
+                    {unlockingCharacterId === char.id && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-purple-900/80 animate-scale-up overflow-hidden">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(253,224,71,0.9)_0%,transparent_65%)] animate-ping" />
+                        <div className="relative text-center">
+                          <Sparkles className="w-12 h-12 mx-auto text-yellow-300 animate-spin" />
+                          <strong className="block text-xl text-white drop-shadow-lg">잠금 해제!</strong>
+                        </div>
                       </div>
                     )}
 

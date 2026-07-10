@@ -17,14 +17,6 @@ interface GameOverScreenProps {
   onRankingRegistered: () => void;
 }
 
-const DEFAULT_RANKS: GameScore[] = [
-  { nickname: '학업우수자', score: 38000, survivalTime: 600, kills: 980, level: 25, difficulty: '상', stage: '초등학교 구역', date: '2026-07-01' },
-  { nickname: '선도위원장', score: 25000, survivalTime: 600, kills: 720, level: 21, difficulty: '중', stage: '초등학교 구역', date: '2026-07-03' },
-  { nickname: '크리스복제인간', score: 18000, survivalTime: 450, kills: 480, level: 16, difficulty: '하', stage: '초등학교 구역', date: '2026-07-04' },
-  { nickname: '공부벌레', score: 12000, survivalTime: 320, kills: 350, level: 12, difficulty: '하', stage: '초등학교 구역', date: '2026-07-05' },
-  { nickname: '빵셔틀탈출러', score: 9500, survivalTime: 280, kills: 280, level: 10, difficulty: '하', stage: '초등학교 구역', date: '2026-07-06' },
-];
-
 export default function GameOverScreen({
   victory,
   survivalTime,
@@ -43,6 +35,7 @@ export default function GameOverScreen({
   const [registered, setRegistered] = useState(false);
   const registeredRef = useRef(false);
   const [globalRankings, setGlobalRankings] = useState<GameScore[]>([]);
+  const earnedPoints = Math.max(1, Math.round(score * 0.1));
 
   const totalDamage = Object.values(damageBreakdown).reduce((sum, d) => sum + d, 0);
 
@@ -73,7 +66,7 @@ export default function GameOverScreen({
   };
 
   const buildRankingView = (scores: GameScore[]) => {
-    return [...scores, ...DEFAULT_RANKS]
+    return [...scores]
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
   };
@@ -117,7 +110,7 @@ export default function GameOverScreen({
       const currentPoints = Number.parseInt(localStorage.getItem('school_attack_points') || '0', 10) || 0;
       const totalCumulative = Number.parseInt(localStorage.getItem('school_attack_total_score') || '0', 10) || 0;
 
-      localStorage.setItem('school_attack_points', (currentPoints + score).toString());
+      localStorage.setItem('school_attack_points', (currentPoints + earnedPoints).toString());
       localStorage.setItem('school_attack_total_score', (totalCumulative + score).toString());
 
       setRegistered(true);
@@ -186,7 +179,7 @@ export default function GameOverScreen({
             </div>
             <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-900">
               <span className="text-[10px] text-slate-500 font-bold block">획득 포인트</span>
-              <span className="text-base font-black text-yellow-400">+{score.toLocaleString()}</span>
+              <span className="text-base font-black text-yellow-400">+{earnedPoints.toLocaleString()}</span>
             </div>
           </div>
 
@@ -253,7 +246,7 @@ export default function GameOverScreen({
               </div>
             ) : (
               <div className="text-center py-3 px-4 bg-emerald-950/30 border border-emerald-800/50 rounded-xl">
-                <span className="text-sm font-bold text-emerald-400 block">✨ 랭킹 저장 완료! +{score.toLocaleString()} PTS 획득</span>
+                <span className="text-sm font-bold text-emerald-400 block">✨ 랭킹 저장 완료! +{earnedPoints.toLocaleString()} PTS 획득</span>
               </div>
             )}
           </div>

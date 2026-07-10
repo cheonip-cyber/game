@@ -8,6 +8,18 @@ interface LevelUpModalProps {
   onSelect: (item: InGameItem) => void;
 }
 
+const ULTIMATE_EFFECTS: Record<string, string> = {
+  pencil: '연필 5발 · 관통 4회 · 최종 피해 1.5배',
+  book: '회전책 7권 · 최종 피해 1.6배 · 탄막 방어 확대',
+  chalk: '유도분필 7발 · 폭발 범위 확대 · 최종 피해 1.6배',
+  mother: '낙뢰가 동시에 2곳에 발생',
+  move_speed: '이동 속도 총 60% 증가',
+  attack_speed: '기본 공격 속도 2배',
+  attack_power: '기본·스킬 공격력 총 75% 증가',
+  dash_boost: '대시 재사용 대기시간 50% 감소',
+  critical_milk: '치명타 확률 50% · 치명타 피해 2.3배',
+};
+
 export default function LevelUpModal({ level, choices, weaponLevels, onSelect }: LevelUpModalProps) {
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-start justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))] overflow-y-auto overscroll-contain">
@@ -95,7 +107,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
                     <div className="flex items-center gap-1.5 mt-1 min-w-0">
                       <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider shrink-0">강화:</span>
                       <span className="text-xs font-bold text-emerald-400 group-hover:text-emerald-300 transition-colors truncate">
-                        {item.effect}
+                        {isUltimate ? ULTIMATE_EFFECTS[item.id] || item.effect : item.effect}
                       </span>
                     </div>
                   </div>
