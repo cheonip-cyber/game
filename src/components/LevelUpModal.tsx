@@ -37,6 +37,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
           {choices.map((item) => {
             const currentLvl = weaponLevels[item.id] || 0;
             const isNew = currentLvl === 0;
+            const isUltimate = currentLvl === 4;
 
             let borderClass = 'border-slate-800 hover:border-slate-700 bg-slate-900/50';
             let bgLight = '';
@@ -54,7 +55,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
               <button
                 key={item.id}
                 onClick={() => onSelect(item)}
-                className={`school-3d-card w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer relative group overflow-hidden ${borderClass}`}
+                className={`school-3d-card w-full text-left p-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer relative group overflow-hidden ${isUltimate ? 'ring-2 ring-yellow-400 shadow-[0_0_24px_rgba(250,204,21,0.35)]' : ''} ${borderClass}`}
               >
                 {/* Decorative hover overlay glow */}
                 <div 
@@ -84,7 +85,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
                         {item.rarity}
                       </span>
                       <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-800 text-slate-400">
-                        {isNew ? 'NEW' : `Lv.${currentLvl}`}
+                        {isNew ? 'NEW' : isUltimate ? 'Lv.5 궁극기 진화' : `Lv.${currentLvl} → ${currentLvl + 1}`}
                       </span>
                     </div>
                     
