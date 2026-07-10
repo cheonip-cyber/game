@@ -1553,6 +1553,12 @@ export default function GameCanvas({
     showLevelUpRef.current = true;
 
     const availableChoices = LEVEL_UP_CHOICES.filter((item) => (weaponLevelsRef.current[item.id] || 0) < MAX_SKILL_LEVEL);
+    if (availableChoices.length === 0) {
+      gameStats.current.hp = Math.min(gameStats.current.maxHp, gameStats.current.hp + gameStats.current.maxHp * 0.2);
+      setHudHp(Math.round(gameStats.current.hp));
+      showLevelUpRef.current = false;
+      return;
+    }
     const shuffled = [...availableChoices].sort(() => 0.5 - Math.random());
     setLevelUpChoices(shuffled.slice(0, 3));
     setShowLevelUp(true);
