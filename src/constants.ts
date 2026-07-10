@@ -120,10 +120,18 @@ export const LEVEL_UP_CHOICES: InGameItem[] = [
   {
     id: 'attack_speed',
     name: '속독 연사 훈련',
-    description: '모든 자동 공격의 준비 동작을 단축해 더 자주 공격합니다.',
-    effect: '모든 스킬 공격 속도 +8%',
+    description: '기본 공격의 준비 동작을 단축해 더 자주 공격합니다.',
+    effect: '기본 공격 속도 +8%',
     rarity: '희귀',
     color: '#fb923c',
+  },
+  {
+    id: 'attack_power',
+    name: '전과목 공격력 훈련',
+    description: '기본 공격과 모든 스킬의 위력을 함께 끌어올립니다.',
+    effect: '기본·스킬 공격력 +8%',
+    rarity: '희귀',
+    color: '#ef4444',
   },
   {
     id: 'vitamin',
@@ -153,7 +161,7 @@ export const LEVEL_UP_CHOICES: InGameItem[] = [
     id: 'clean_badge',
     name: '모범생 수호 배지',
     description: '가슴에 빛나는 녹색 모범생 배지. 받는 모든 종류의 피해를 줄이고 불량 기운을 정화합니다.',
-    effect: '받는 피해량 15% 영구 감소 및 체력 회복력 +0.5/초',
+    effect: '받는 피해량 2% 감소 (최대 10%)',
     rarity: '전설',
     color: '#10b981', // emerald-500
   },

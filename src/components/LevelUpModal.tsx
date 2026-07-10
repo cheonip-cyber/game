@@ -39,12 +39,14 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
             const isNew = currentLvl === 0;
             const isUltimate = currentLvl === 4;
 
-            let borderClass = 'border-slate-800 hover:border-slate-700 bg-slate-900/50';
+            let borderClass = isUltimate
+              ? 'border-yellow-300 bg-gradient-to-br from-purple-950/95 via-violet-900/90 to-amber-950/90 hover:border-yellow-200'
+              : 'border-slate-800 hover:border-slate-700 bg-slate-900/50';
             let bgLight = '';
-            if (item.rarity === '희귀') {
+            if (!isUltimate && item.rarity === '희귀') {
               borderClass = 'border-blue-900 hover:border-blue-700 bg-blue-950/10 hover:bg-blue-950/15';
               bgLight = 'bg-blue-500/10 text-blue-400';
-            } else if (item.rarity === '전설') {
+            } else if (!isUltimate && item.rarity === '전설') {
               borderClass = 'border-yellow-900 hover:border-yellow-600 bg-yellow-950/10 hover:bg-yellow-950/15';
               bgLight = 'bg-yellow-500/10 text-yellow-400 animate-pulse';
             } else {
@@ -87,6 +89,7 @@ export default function LevelUpModal({ level, choices, weaponLevels, onSelect }:
                       <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-800 text-slate-400">
                         {isNew ? 'NEW' : isUltimate ? 'Lv.5 궁극기 진화' : `Lv.${currentLvl} → ${currentLvl + 1}`}
                       </span>
+                      {isUltimate && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-yellow-300 text-purple-950">ULTIMATE</span>}
                     </div>
                     
                     {/* Inline Enhancement Effect right below name */}
