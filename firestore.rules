@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rankings/{rankingId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'uid', 'nickname', 'score', 'survivalTime', 'kills',
+          'level', 'difficulty', 'stage', 'createdAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.matches('^[A-Za-z]{1,20}$')
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 1000000000
+        && request.resource.data.survivalTime is int
+        && request.resource.data.survivalTime >= 0
+        && request.resource.data.survivalTime <= 3600
+        && request.resource.data.kills is int
+        && request.resource.data.kills >= 0
+        && request.resource.data.kills <= 100000
+        && request.resource.data.level is int
+        && request.resource.data.level >= 1
+        && request.resource.data.level <= 500
+        && request.resource.data.difficulty in ['하', '중', '상', '해골']
+        && request.resource.data.stage in ['초등학교 구역', '중학교 구역', '고등학교 구역']
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+  }
+}

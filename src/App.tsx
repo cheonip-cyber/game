@@ -5,7 +5,7 @@ import GameCanvas from './components/GameCanvas';
 import GameOverScreen from './components/GameOverScreen';
 import { Character, StageId, Difficulty, UpgradeState } from './types';
 
-const DATA_RESET_VERSION = '2026-07-10-full-reset-v1';
+const DATA_RESET_VERSION = '2026-07-10-firestore-ranking-v2';
 const DEFAULT_UNLOCKED_CHARACTERS = ['chris'];
 
 type ScreenState = 'intro' | 'main' | 'game' | 'gameover';
@@ -23,7 +23,7 @@ export default function App() {
     character: null,
     stageId: 'elementary',
     difficulty: '하',
-    nickname: '모범크리스',
+    nickname: 'Chris',
   });
 
   // Upgrade point states & Cumulative Scores (Synchronized with localStorage)

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { CHARACTERS, STAGES, DIFFICULTIES, CHALLENGES } from '../constants';
-import { Character, StageId, Difficulty, UpgradeState, GameScore } from '../types';
+import { Character, StageId, Difficulty, UpgradeState } from '../types';
 import { Swords, Trophy, Sparkles, Lock, Gamepad2, Settings2, UserCheck, HelpCircle, Maximize, Minimize } from 'lucide-react';
 import UpgradeMenu from './UpgradeMenu';
+import { useRankings } from '../hooks/useRankings';
+import { isValidEnglishNickname } from '../services/rankings';
 
 interface MainScreenProps {
   onStartGame: (config: {
@@ -34,11 +36,12 @@ export default function MainScreen({
   const [selectedStage, setSelectedStage] = useState<StageId>('elementary');
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('하');
   const [nickname, setNickname] = useState<string>(() => {
-    return localStorage.getItem('school_attack_nickname') || '모범크리스';
+    const storedNickname = localStorage.getItem('school_attack_nickname') || '';
+    return isValidEnglishNickname(storedNickname) ? storedNickname : 'Chris';
   });
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [challenge, setChallenge] = useState('');
-  const [localRankings, setLocalRankings] = useState<GameScore[]>([]);
+  const { rankings: globalRankings, isLoading: rankingsLoading, error: rankingsError } = useRankings();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [unlockingCharacterId, setUnlockingCharacterId] = useState<string | null>(null);
 
@@ -67,21 +70,12 @@ export default function MainScreen({
     const index = day % CHALLENGES.length;
     setChallenge(CHALLENGES[index]);
 
-    const stored = localStorage.getItem('school_attack_rankings');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as GameScore[];
-        setLocalRankings(parsed.sort((a, b) => b.score - a.score).slice(0, 5));
-      } catch (e) {
-        console.error(e);
-      }
-    }
   }, []);
 
   const handleStart = () => {
     const trimmedNickname = nickname.trim();
-    if (!trimmedNickname) {
-      alert('출격용 닉네임을 입력해주세요!');
+    if (!isValidEnglishNickname(trimmedNickname)) {
+      alert('닉네임은 영문 알파벳 1~20자로 입력해주세요.');
       return;
     }
 
@@ -163,11 +157,11 @@ export default function MainScreen({
                 type="text"
                 maxLength={20}
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="닉네임을 입력하세요..."
+                onChange={(e) => setNickname(e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 20))}
+                placeholder="English nickname"
                 className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-cyan-400 px-4 py-3 rounded-xl text-slate-100 font-bold focus:outline-none transition-colors text-sm"
               />
-              <p className="text-[10px] text-slate-500 mt-2 text-right">{nickname.length}/20</p>
+              <p className="text-[10px] text-slate-500 mt-2 flex justify-between"><span>영문 알파벳만 입력 가능</span><span>{nickname.length}/20</span></p>
             </div>
 
             <div className="school-3d-panel bg-slate-900/40 p-4 rounded-2xl border border-slate-800/80">
@@ -350,13 +344,17 @@ export default function MainScreen({
             <div className="bg-slate-900/30 border border-slate-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-3.5">
                 <Trophy className="w-4 h-4 text-yellow-400" />
-                <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">명예의 전당 TOP 5 (로컬 기록)</h3>
+                <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">글로벌 실시간 랭킹 TOP 5</h3>
               </div>
               <div className="space-y-2">
-                {localRankings.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-4 text-center">등록된 생존 명단이 없습니다.</p>
+                {rankingsLoading ? (
+                  <p className="text-xs text-cyan-400 py-4 text-center animate-pulse">글로벌 랭킹 연결 중...</p>
+                ) : rankingsError ? (
+                  <p className="text-xs text-rose-400 py-4 text-center">{rankingsError}</p>
+                ) : globalRankings.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-4 text-center">아직 등록된 글로벌 기록이 없습니다.</p>
                 ) : (
-                  localRankings.map((rk, idx) => (
+                  globalRankings.slice(0, 5).map((rk, idx) => (
                     <div key={`${rk.nickname}-${rk.score}-${idx}`} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950/50 border border-slate-900 text-xs">
                       <div className="flex items-center gap-2">
                         <span className={`w-5 h-5 rounded-md flex items-center justify-center font-bold ${
