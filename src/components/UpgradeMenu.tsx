@@ -1,5 +1,6 @@
 import { UpgradeState } from '../types';
 import { Shield, Zap, Swords, Magnet, Milestone, Trophy } from 'lucide-react';
+import { getUpgradeCost } from '../utils/progression';
 
 interface UpgradeMenuProps {
   upgrades: UpgradeState;
@@ -55,10 +56,6 @@ const UPGRADE_DETAILS = {
 const MAX_LEVEL = 10;
 
 export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onClose }: UpgradeMenuProps) {
-  const getCost = (level: number) => {
-    return 700 + level * 450 + level * level * 80;
-  };
-
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-start justify-center p-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
       <div className="school-3d-panel bg-slate-900 border border-slate-700 rounded-2xl w-full max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden shadow-2xl">
@@ -105,7 +102,7 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
           {(Object.keys(UPGRADE_DETAILS) as Array<keyof UpgradeState>).map((key) => {
             const currentLevel = upgrades[key];
             const isMax = currentLevel >= MAX_LEVEL;
-            const cost = getCost(currentLevel);
+            const cost = getUpgradeCost(currentLevel);
             const detail = UPGRADE_DETAILS[key];
             const IconComponent = detail.icon;
             const canAfford = points >= cost;

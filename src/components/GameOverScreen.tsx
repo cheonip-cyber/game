@@ -3,6 +3,7 @@ import { GameScore } from '../types';
 import { Trophy, RefreshCw, Home, Share2, BarChart3, Save } from 'lucide-react';
 import { useRankings } from '../hooks/useRankings';
 import { isValidEnglishNickname, saveGlobalRanking } from '../services/rankings';
+import { calculateEarnedPoints } from '../utils/progression';
 
 interface GameOverScreenProps {
   victory: boolean;
@@ -37,7 +38,7 @@ export default function GameOverScreen({
   const [registered, setRegistered] = useState(false);
   const registeredRef = useRef(false);
   const { rankings: globalRankings, isLoading: rankingsLoading, error: rankingsError } = useRankings();
-  const earnedPoints = Math.max(1, Math.round(score * 0.1));
+  const earnedPoints = calculateEarnedPoints(score);
 
   const totalDamage = Object.values(damageBreakdown).reduce((sum, d) => sum + d, 0);
 

@@ -4,8 +4,9 @@ import MainScreen from './components/MainScreen';
 import GameCanvas from './components/GameCanvas';
 import GameOverScreen from './components/GameOverScreen';
 import { Character, StageId, Difficulty, UpgradeState } from './types';
+import { getUpgradeCost } from './utils/progression';
 
-const DATA_RESET_VERSION = '2026-07-10-firestore-ranking-v2';
+const DATA_RESET_VERSION = '2026-07-10-balance-reset-v3';
 const DEFAULT_UNLOCKED_CHARACTERS = ['chris'];
 
 type ScreenState = 'intro' | 'main' | 'game' | 'gameover';
@@ -118,7 +119,7 @@ export default function App() {
     const getPaidCostSum = (level: number) => {
       let sum = 0;
       for (let i = 0; i < level; i++) {
-        sum += 700 + i * 450 + i * i * 80;
+        sum += getUpgradeCost(i);
       }
       return sum;
     };

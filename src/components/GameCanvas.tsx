@@ -57,6 +57,7 @@ const MAX_GEMS = 220;
 const MAX_PARTICLES = 520;
 const MAX_FLOATING_TEXTS = 110;
 const ENEMY_GRID_SIZE = 140;
+const VIEW_SCALE = 0.9;
 
 interface Bullet {
   id: string;
@@ -100,7 +101,7 @@ interface Gem {
   value: number; // Experience value
   radius: number;
   color: string;
-  kind: 'exp' | 'magnet' | 'bomb';
+  kind: 'exp' | 'magnet' | 'bomb' | 'potion';
   isMagnetized?: boolean;
 }
 
@@ -336,7 +337,10 @@ export default function GameCanvas({
     const handleResize = () => {
       if (containerRef.current && canvasRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;
-        setCanvasDimensions({ width: clientWidth, height: clientHeight });
+        setCanvasDimensions({
+          width: Math.round(clientWidth / VIEW_SCALE),
+          height: Math.round(clientHeight / VIEW_SCALE),
+        });
         
         // Relocate player to center of world if game just loaded
         if (gameStats.current.time === 0) {
@@ -1380,14 +1384,14 @@ export default function GameCanvas({
 
     if (!enemy.isBoss) {
       const itemRoll = Math.random();
-      const itemKind = itemRoll < 0.002 ? 'bomb' : itemRoll < 0.007 ? 'magnet' : null;
+      const itemKind = itemRoll < 0.002 ? 'bomb' : itemRoll < 0.007 ? 'magnet' : itemRoll < 0.012 ? 'potion' : null;
       if (itemKind) {
         gemsRef.current.push({
           x: enemy.x + (Math.random() - 0.5) * 24,
           y: enemy.y + (Math.random() - 0.5) * 24,
           value: 0,
           radius: 9,
-          color: itemKind === 'magnet' ? '#f43f5e' : '#facc15',
+          color: itemKind === 'magnet' ? '#f43f5e' : itemKind === 'bomb' ? '#facc15' : '#34d399',
           kind: itemKind,
         });
       }
@@ -1557,7 +1561,19 @@ export default function GameCanvas({
 
   const triggerGemCollect = (gem: Gem) => {
     const stats = gameStats.current;
-    const levelExpMultiplier = stats.level <= 5 ? 1 : stats.level <= 10 ? 0.72 : stats.level <= 15 ? 0.48 : stats.level <= 20 ? 0.3 : 0.18;
+    const levelExpMultiplier = stats.level <= 5
+      ? 1
+      : stats.level <= 10
+        ? 0.8
+        : stats.level <= 15
+          ? 0.6
+          : stats.level <= 20
+            ? 0.4
+            : stats.level <= 40
+              ? 0.2
+              : stats.level <= 99
+                ? 0.1
+                : 0.05;
     let expGain = gem.kind === 'exp' ? Math.max(1, Math.round(gem.value * levelExpMultiplier)) : 0;
 
     if (gem.kind === 'magnet') {
@@ -1579,6 +1595,11 @@ export default function GameCanvas({
         }
       }
       floatingTextsRef.current.push({ x: stats.playerX, y: stats.playerY - 55, text: '💣 화면 정화!', color: '#facc15', life: 0, maxLife: 70, isCritical: true });
+    } else if (gem.kind === 'potion') {
+      const recoveredHp = Math.max(1, Math.round(stats.maxHp * 0.3));
+      stats.hp = Math.min(stats.maxHp, stats.hp + recoveredHp);
+      setHudHp(Math.round(stats.hp));
+      floatingTextsRef.current.push({ x: stats.playerX, y: stats.playerY - 55, text: `+${recoveredHp} HP`, color: '#34d399', life: 0, maxLife: 70, isCritical: true });
     }
 
     stats.exp += expGain;
@@ -1869,6 +1890,18 @@ export default function GameCanvas({
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('💣', 0, 0);
+      } else if (g.kind === 'potion') {
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#ecfdf5';
+        ctx.fill();
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🧪', 0, 0);
       } else if (expPrismImageRef.current) {
         ctx.drawImage(expPrismImageRef.current, -prismSize / 2, -prismSize / 2, prismSize, prismSize);
       } else {
