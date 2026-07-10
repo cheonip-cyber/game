@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { CHARACTERS, STAGES, DIFFICULTIES, CHALLENGES } from '../constants';
 import { Character, StageId, Difficulty, UpgradeState, GameScore } from '../types';
 import { Swords, Trophy, Sparkles, Lock, Gamepad2, Settings2, UserCheck, HelpCircle, Maximize, Minimize } from 'lucide-react';

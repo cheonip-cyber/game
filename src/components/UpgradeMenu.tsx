@@ -1,4 +1,3 @@
-import React from 'react';
 import { UpgradeState } from '../types';
 import { Shield, Zap, Swords, Magnet, Milestone, Trophy } from 'lucide-react';
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Play, FastForward, Terminal, ShieldAlert } from 'lucide-react';
 
 interface IntroScreenProps {
@@ -28,7 +28,6 @@ export default function IntroScreen({ onComplete }: IntroScreenProps) {
   const [isFinished, setIsFinished] = useState(false);
   
   const terminalEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Typing speed in ms
   const typingSpeed = 30;

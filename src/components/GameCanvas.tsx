@@ -1,7 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Character, StageId, Difficulty, UpgradeState, InGameItem } from '../types';
 import { LEVEL_UP_CHOICES } from '../constants';
-import { Pause, Play, ShieldAlert, Award, Zap, HelpCircle, FastForward, Maximize, Minimize } from 'lucide-react';
+import { Pause, Play, ShieldAlert, Maximize, Minimize } from 'lucide-react';
 import LevelUpModal from './LevelUpModal';
 
 interface GameCanvasProps {
@@ -144,8 +144,7 @@ export default function GameCanvas({
   const expPrismImageRef = useRef<HTMLImageElement | null>(null);
   const playerFacingRef = useRef<PlayerFacing>('down');
 
-  // Time speed multiplier for testing (x1, x5, x20)
-  const [timeMultiplier, setTimeMultiplier] = useState<number>(1);
+  const timeMultiplier = 1;
 
   // Fullscreen States
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -225,8 +224,6 @@ export default function GameCanvas({
     score: 0,
     playerX: 1500,
     playerY: 1500,
-    playerVx: 0,
-    playerVy: 0,
     playerRadius: 16,
     speed: character.baseSpeed,
     magnetRange: character.baseMagnet,
@@ -672,7 +669,6 @@ export default function GameCanvas({
         if (!isDyingRef.current) {
           // 1. Survival Time Increaser
           stats.time += delta;
-          setHudTime(Math.floor(stats.time));
 
           // Trigger victory condition (10 min = 600s)
           if (stats.time >= stats.victoryTargetTime) {
@@ -685,14 +681,6 @@ export default function GameCanvas({
           if (regenBonus > 0) {
             stats.hp = Math.min(stats.maxHp, stats.hp + regenBonus * delta);
             setHudHp(Math.round(stats.hp));
-          }
-
-          // 2. Dash cooldown indicators
-          if (!hudDashReady && (now - stats.lastDashTime >= stats.dashCooldown)) {
-            setHudDashReady(true);
-            setHudDashCooldown(0);
-          } else if (!hudDashReady) {
-            setHudDashCooldown(Math.max(0, (stats.dashCooldown - (now - stats.lastDashTime)) / 1000));
           }
 
           // Dash runtime logic
@@ -832,7 +820,7 @@ export default function GameCanvas({
           }
 
           // 5. Automate Weapon Systems
-          fireWeapons(delta, now);
+          fireWeapons(now);
 
           // 9. Update Gems Attraction & Magnet collect
           updateGems(delta);
@@ -855,11 +843,15 @@ export default function GameCanvas({
         if (statsSyncTimer >= 0.15) {
           statsSyncTimer = 0;
           setHudHp(Math.round(stats.hp));
+          setHudTime(Math.floor(stats.time));
           setHudKills(stats.kills);
           setHudScore(Math.round(stats.score));
           setHudLevel(stats.level);
           setHudExp(stats.exp);
           setHudMaxExp(stats.maxExp);
+          const dashRemainingMs = Math.max(0, stats.dashCooldown - (now - stats.lastDashTime));
+          setHudDashReady(dashRemainingMs <= 0);
+          setHudDashCooldown(dashRemainingMs / 1000);
         }
       }
 
@@ -875,10 +867,10 @@ export default function GameCanvas({
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [canvasDimensions, isPaused, showLevelUp, timeMultiplier, isTouchActive]);
+  }, [canvasDimensions, isPaused, showLevelUp, isTouchActive]);
 
   // Weapon Firing Mechanism
-  const fireWeapons = (delta: number, now: number) => {
+  const fireWeapons = (now: number) => {
     const stats = gameStats.current;
     const lvls = weaponLevelsRef.current;
     const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
@@ -1163,7 +1155,6 @@ export default function GameCanvas({
   // Strikes trigger (Mother Storm Lightning)
   const updateStrikes = (delta: number) => {
     const strikes = strikesRef.current;
-    const now = Date.now();
     const lvls = weaponLevelsRef.current;
     const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
 
@@ -1286,17 +1277,7 @@ export default function GameCanvas({
       enemiesRef.current.splice(idx, 1);
     }
 
-    // Multipliers
-    let scoreMult = 1.0;
-    if (stageId === 'middle') scoreMult = 1.8;
-    else if (stageId === 'high') scoreMult = 3.0;
-
-    let diffMult = 1.0;
-    if (difficulty === '중') diffMult = 2.0;
-    else if (difficulty === '상') diffMult = 4.0;
-    else if (difficulty === '해골') diffMult = 8.0;
-
-    const baseScoreGained = enemy.scoreValue * scoreMult * diffMult;
+    const baseScoreGained = enemy.scoreValue * SCORE_FIELD_WEIGHT[stageId] * SCORE_DIFFICULTY_WEIGHT[difficulty];
     stats.score += baseScoreGained;
     stats.kills++;
 
@@ -1374,8 +1355,9 @@ export default function GameCanvas({
 
     const baseDefense = FIELD_BALANCE[stageId][difficulty][1];
     const levelDefense = baseDefense + 0.5 * Math.max(0, stats.level - 1);
+    const defenseReduction = levelDefense / (levelDefense + 100);
     const badgeReduction = Math.min(0.1, (weaponLevelsRef.current.clean_badge || 0) * 0.02);
-    const finalAmount = Math.max(1, Math.round(Math.max(1, amount - levelDefense) * (1 - badgeReduction)));
+    const finalAmount = Math.max(1, Math.round(amount * (1 - defenseReduction) * (1 - badgeReduction)));
 
     stats.hp -= finalAmount;
     setHudHp(Math.round(stats.hp));
