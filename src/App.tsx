@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import IntroScreen from './components/IntroScreen';
 import MainScreen from './components/MainScreen';
 import GameCanvas from './components/GameCanvas';
@@ -156,7 +156,7 @@ export default function App() {
             stageId={activeConfig.stageId}
             difficulty={activeConfig.difficulty}
             upgrades={upgrades}
-            onPauseToggle={(isPaused) => {
+            onPauseToggle={(_isPaused) => {
               // Can hook pause telemetry if needed
             }}
             onGameEnd={(result) => {

@@ -1,6 +1,5 @@
-import React from 'react';
 import { InGameItem } from '../types';
-import { Sparkles, Star, Award } from 'lucide-react';
+import { Sparkles, Award } from 'lucide-react';
 
 interface LevelUpModalProps {
   level: number;

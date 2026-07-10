@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GameScore } from '../types';
 import { Trophy, RefreshCw, Home, Share2, BarChart3, Save } from 'lucide-react';
 
