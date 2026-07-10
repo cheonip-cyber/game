@@ -5,6 +5,9 @@ import GameCanvas from './components/GameCanvas';
 import GameOverScreen from './components/GameOverScreen';
 import { Character, StageId, Difficulty, UpgradeState } from './types';
 
+const DATA_RESET_VERSION = '2026-07-10-full-reset-v1';
+const DEFAULT_UNLOCKED_CHARACTERS = ['chris'];
+
 type ScreenState = 'intro' | 'main' | 'game' | 'gameover';
 
 export default function App() {
@@ -26,6 +29,7 @@ export default function App() {
   // Upgrade point states & Cumulative Scores (Synchronized with localStorage)
   const [points, setPoints] = useState<number>(0);
   const [totalScore, setTotalScore] = useState<number>(0);
+  const [unlockedCharacterIds, setUnlockedCharacterIds] = useState<string[]>(DEFAULT_UNLOCKED_CHARACTERS);
   const [upgrades, setUpgrades] = useState<UpgradeState>({
     maxHpLevel: 0,
     speedLevel: 0,
@@ -46,10 +50,26 @@ export default function App() {
 
   // Sync state on mount
   useEffect(() => {
+    if (localStorage.getItem('school_attack_reset_version') !== DATA_RESET_VERSION) {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith('school_attack_') || key.startsWith('school_survival_'))
+        .forEach((key) => localStorage.removeItem(key));
+      localStorage.setItem('school_attack_reset_version', DATA_RESET_VERSION);
+    }
+
     const pts = parseInt(localStorage.getItem('school_attack_points') || '0', 10);
     const tot = parseInt(localStorage.getItem('school_attack_total_score') || '0', 10);
     setPoints(pts);
     setTotalScore(tot);
+    const storedCharacters = localStorage.getItem('school_attack_unlocked_characters');
+    if (storedCharacters) {
+      try {
+        const parsed = JSON.parse(storedCharacters) as string[];
+        setUnlockedCharacterIds(Array.isArray(parsed) ? [...new Set([...DEFAULT_UNLOCKED_CHARACTERS, ...parsed])] : DEFAULT_UNLOCKED_CHARACTERS);
+      } catch {
+        setUnlockedCharacterIds(DEFAULT_UNLOCKED_CHARACTERS);
+      }
+    }
 
     const storedUpgrades = localStorage.getItem('school_attack_upgrades');
     if (storedUpgrades) {
@@ -60,6 +80,17 @@ export default function App() {
       }
     }
   }, [screen]);
+
+  const handleUnlockCharacter = (character: Character) => {
+    if (unlockedCharacterIds.includes(character.id) || points < character.unlockScore) return false;
+    const nextPoints = points - character.unlockScore;
+    const nextUnlocked = [...unlockedCharacterIds, character.id];
+    setPoints(nextPoints);
+    setUnlockedCharacterIds(nextUnlocked);
+    localStorage.setItem('school_attack_points', nextPoints.toString());
+    localStorage.setItem('school_attack_unlocked_characters', JSON.stringify(nextUnlocked));
+    return true;
+  };
 
   // Handle stat upgrade
   const handleUpgrade = (key: keyof UpgradeState, cost: number) => {
@@ -133,6 +164,8 @@ export default function App() {
           totalScore={totalScore}
           points={points}
           upgrades={upgrades}
+          unlockedCharacterIds={unlockedCharacterIds}
+          onUnlockCharacter={handleUnlockCharacter}
           onUpgrade={handleUpgrade}
           onResetUpgrades={handleResetUpgrades}
           onStartGame={(config) => {

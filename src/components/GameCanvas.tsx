@@ -51,6 +51,12 @@ const FIELD_BALANCE = {
 const SCORE_FIELD_WEIGHT: Record<StageId, number> = { elementary: 1, middle: 1.8, high: 3 };
 const SCORE_DIFFICULTY_WEIGHT: Record<Difficulty, number> = { '하': 1, '중': 1.4, '상': 2, '해골': 3 };
 const MAX_SKILL_LEVEL = 5;
+const MAX_ENEMIES = 360;
+const MAX_BULLETS = 420;
+const MAX_GEMS = 220;
+const MAX_PARTICLES = 520;
+const MAX_FLOATING_TEXTS = 110;
+const ENEMY_GRID_SIZE = 140;
 
 interface Bullet {
   id: string;
@@ -95,6 +101,7 @@ interface Gem {
   radius: number;
   color: string;
   kind: 'exp' | 'magnet' | 'bomb';
+  isMagnetized?: boolean;
 }
 
 interface Particle {
@@ -273,6 +280,33 @@ export default function GameCanvas({
   const particlesRef = useRef<Particle[]>([]);
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const strikesRef = useRef<StrikeArea[]>([]);
+  const enemyGridRef = useRef<Map<string, Enemy[]>>(new Map());
+
+  const rebuildEnemyGrid = () => {
+    const grid = enemyGridRef.current;
+    grid.clear();
+    for (const enemy of enemiesRef.current) {
+      const key = `${Math.floor(enemy.x / ENEMY_GRID_SIZE)},${Math.floor(enemy.y / ENEMY_GRID_SIZE)}`;
+      const cell = grid.get(key);
+      if (cell) cell.push(enemy);
+      else grid.set(key, [enemy]);
+    }
+  };
+
+  const getNearbyEnemies = (x: number, y: number, radius: number) => {
+    const result: Enemy[] = [];
+    const minX = Math.floor((x - radius) / ENEMY_GRID_SIZE);
+    const maxX = Math.floor((x + radius) / ENEMY_GRID_SIZE);
+    const minY = Math.floor((y - radius) / ENEMY_GRID_SIZE);
+    const maxY = Math.floor((y + radius) / ENEMY_GRID_SIZE);
+    for (let cellX = minX; cellX <= maxX; cellX++) {
+      for (let cellY = minY; cellY <= maxY; cellY++) {
+        const cell = enemyGridRef.current.get(`${cellX},${cellY}`);
+        if (cell) result.push(...cell);
+      }
+    }
+    return result;
+  };
 
   // Rotating books angle
   const bookAngleRef = useRef<number>(0);
@@ -502,6 +536,7 @@ export default function GameCanvas({
     type: 'swarm' | 'blaster' | 'hazard' | 'reinforced' | 'boss',
     clusterAnchor?: { x: number; y: number },
   ) => {
+    if (enemiesRef.current.length >= MAX_ENEMIES) return;
     const stats = gameStats.current;
     const width = canvasDimensions.width;
     const height = canvasDimensions.height;
@@ -820,6 +855,7 @@ export default function GameCanvas({
           }
 
           // 5. Automate Weapon Systems
+          rebuildEnemyGrid();
           fireWeapons(now);
 
           // 9. Update Gems Attraction & Magnet collect
@@ -837,6 +873,10 @@ export default function GameCanvas({
 
         // 10. Update Particles & Floating Text FX
         updateFX(delta);
+
+        if (bulletsRef.current.length > MAX_BULLETS) bulletsRef.current.splice(0, bulletsRef.current.length - MAX_BULLETS);
+        if (particlesRef.current.length > MAX_PARTICLES) particlesRef.current.splice(0, particlesRef.current.length - MAX_PARTICLES);
+        if (floatingTextsRef.current.length > MAX_FLOATING_TEXTS) floatingTextsRef.current.splice(0, floatingTextsRef.current.length - MAX_FLOATING_TEXTS);
 
         // 11. React UI HUD synchronization (reduced rate to optimize)
         statsSyncTimer += delta;
@@ -873,8 +913,10 @@ export default function GameCanvas({
   const fireWeapons = (now: number) => {
     const stats = gameStats.current;
     const lvls = weaponLevelsRef.current;
-    const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
-    const basicAttackSpeedMultiplier = 1 + (lvls.attack_speed || 0) * 0.08;
+    const attackPowerLevel = lvls.attack_power || 0;
+    const attackSpeedLevel = lvls.attack_speed || 0;
+    const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (attackPowerLevel >= 5 ? 1.75 : 1 + attackPowerLevel * 0.08);
+    const basicAttackSpeedMultiplier = attackSpeedLevel >= 5 ? 2 : 1 + attackSpeedLevel * 0.08;
     const [basicAttack, , skillAttack] = FIELD_BALANCE[stageId][difficulty];
     const levelAttackScale = 1 + 0.08 * Math.max(0, stats.level - 1);
 
@@ -892,9 +934,10 @@ export default function GameCanvas({
           const angle = Math.atan2(closest.y - stats.playerY, closest.x - stats.playerX);
           
           // Shoot bullets based on level
-          const count = lvls.pencil >= 4 ? 3 : lvls.pencil >= 2 ? 2 : 1;
-          const pierce = lvls.pencil >= 3 ? 2 : 1;
-          const damage = Math.round(basicAttack * levelAttackScale * (1 + (lvls.pencil - 1) * 0.15) * damageMultiplier);
+          const count = lvls.pencil >= 5 ? 5 : lvls.pencil >= 4 ? 3 : lvls.pencil >= 2 ? 2 : 1;
+          const pierce = lvls.pencil >= 5 ? 4 : lvls.pencil >= 3 ? 2 : 1;
+          const ultimateMultiplier = lvls.pencil >= 5 ? 1.5 : 1;
+          const damage = Math.round(basicAttack * levelAttackScale * (1 + (lvls.pencil - 1) * 0.15) * damageMultiplier * ultimateMultiplier);
 
           for (let i = 0; i < count; i++) {
             const spreadAngle = angle + (i - (count - 1) / 2) * 0.15;
@@ -920,8 +963,8 @@ export default function GameCanvas({
       // Books are rendering directly orbiting the player, updating angle
       bookAngleRef.current += 0.04 * (1 + lvls.book * 0.1) * timeMultiplier;
       
-      const bookCount = lvls.book >= 5 ? 5 : lvls.book >= 3 ? 3 : lvls.book >= 1 ? 2 : 1;
-      const damage = Math.round(skillAttack * 0.45 * levelAttackScale * (1 + (lvls.book - 1) * 0.15) * damageMultiplier);
+      const bookCount = lvls.book >= 5 ? 7 : lvls.book >= 3 ? 3 : lvls.book >= 1 ? 2 : 1;
+      const damage = Math.round(skillAttack * 0.45 * levelAttackScale * (1 + (lvls.book - 1) * 0.15) * damageMultiplier * (lvls.book >= 5 ? 1.6 : 1));
 
       // We do damage check in standard loop for books (collision with player surrounding radius)
       const bookRadius = 65 + lvls.book * 8;
@@ -933,7 +976,7 @@ export default function GameCanvas({
         const by = stats.playerY + Math.sin(bookAngleRef.current + offset) * bookRadius;
 
         // Check collision with all enemies
-        enemiesRef.current.forEach((enemy) => {
+        getNearbyEnemies(bx, by, 60).forEach((enemy) => {
           const dist = Math.hypot(enemy.x - bx, enemy.y - by);
           if (dist < enemy.radius + bookSize) {
             // Apply damage if ready (avoiding multi-hit per frame, we use rate limiter)
@@ -960,8 +1003,8 @@ export default function GameCanvas({
         lastFiredRef.current.chalk = now;
 
         // Fire homing bullets at random enemies
-        const count = lvls.chalk >= 4 ? 4 : lvls.chalk >= 2 ? 2 : 1;
-        const damage = Math.round(skillAttack * levelAttackScale * (1 + (lvls.chalk - 1) * 0.15) * damageMultiplier);
+        const count = lvls.chalk >= 5 ? 7 : lvls.chalk >= 4 ? 4 : lvls.chalk >= 2 ? 2 : 1;
+        const damage = Math.round(skillAttack * levelAttackScale * (1 + (lvls.chalk - 1) * 0.15) * damageMultiplier * (lvls.chalk >= 5 ? 1.6 : 1));
 
         for (let i = 0; i < count; i++) {
           if (enemiesRef.current.length > 0) {
@@ -1010,15 +1053,18 @@ export default function GameCanvas({
         }
 
         // Add strike target Area
-        strikesRef.current.push({
-          x: targetX,
-          y: targetY,
-          radius: 80 + lvls.mother * 15,
-          timer: 0.8, // 0.8s warning before strike
-          maxTimer: 0.8,
-          triggered: false,
-          type: 'mother',
-        });
+        const strikeCount = lvls.mother >= 5 ? 2 : 1;
+        for (let strikeIndex = 0; strikeIndex < strikeCount; strikeIndex++) {
+          strikesRef.current.push({
+            x: targetX + (strikeIndex === 0 ? 0 : (Math.random() - 0.5) * 260),
+            y: targetY + (strikeIndex === 0 ? 0 : (Math.random() - 0.5) * 260),
+            radius: 80 + lvls.mother * 15,
+            timer: 0.8,
+            maxTimer: 0.8,
+            triggered: false,
+            type: 'mother',
+          });
+        }
       }
     }
   };
@@ -1026,7 +1072,7 @@ export default function GameCanvas({
   const getClosestEnemy = (x: number, y: number): Enemy | null => {
     let minDist = Infinity;
     let closest: Enemy | null = null;
-    enemiesRef.current.forEach((enemy) => {
+    getNearbyEnemies(x, y, 1000).forEach((enemy) => {
       const dist = Math.hypot(enemy.x - x, enemy.y - y);
       if (dist < minDist) {
         minDist = dist;
@@ -1076,8 +1122,10 @@ export default function GameCanvas({
       // Check collision against enemies
       if (b.type !== 'enemy') {
         let hit = false;
-        for (let j = enemiesRef.current.length - 1; j >= 0; j--) {
-          const enemy = enemiesRef.current[j];
+        const nearbyEnemies = getNearbyEnemies(b.x, b.y, 80);
+        for (let j = nearbyEnemies.length - 1; j >= 0; j--) {
+          const enemy = nearbyEnemies[j];
+          if (enemy.hp <= 0) continue;
           const dist = Math.hypot(enemy.x - b.x, enemy.y - b.y);
           
           if (dist < enemy.radius + b.radius) {
@@ -1086,7 +1134,8 @@ export default function GameCanvas({
 
             // Explosive effect for homing chalk
             if (b.type === 'chalk') {
-              triggerAreaDamage(b.x, b.y, 45, b.damage * 0.6, '선도부 유도분필');
+              const chalkLevel = weaponLevelsRef.current.chalk || 0;
+              triggerAreaDamage(b.x, b.y, chalkLevel >= 5 ? 75 : 45, b.damage * (chalkLevel >= 5 ? 0.9 : 0.6), '선도부 유도분필');
               // Chalk explosive sparks
               for (let k = 0; k < 8; k++) {
                 particlesRef.current.push({
@@ -1118,7 +1167,7 @@ export default function GameCanvas({
         const stats = gameStats.current;
         const bookLevel = weaponLevelsRef.current.book || 0;
         if (bookLevel > 0) {
-          const bookCount = bookLevel >= 5 ? 5 : bookLevel >= 3 ? 3 : 2;
+          const bookCount = bookLevel >= 5 ? 7 : bookLevel >= 3 ? 3 : 2;
           const bookRadius = 65 + bookLevel * 8;
           const bookSize = 12 + bookLevel * 2;
           let blocked = false;
@@ -1217,7 +1266,7 @@ export default function GameCanvas({
   };
 
   const triggerAreaDamage = (x: number, y: number, radius: number, damage: number, source: string) => {
-    enemiesRef.current.forEach((enemy) => {
+    [...enemiesRef.current].forEach((enemy) => {
       const dist = Math.hypot(enemy.x - x, enemy.y - y);
       if (dist < radius + enemy.radius) {
         dealDamageToEnemy(enemy, Math.round(damage), source, enemy.x, enemy.y);
@@ -1228,9 +1277,10 @@ export default function GameCanvas({
   // Damage calculation + Floating Text indicators
   const dealDamageToEnemy = (enemy: Enemy, baseDamage: number, source: string, hitX: number, hitY: number) => {
     // Critical strike chance
-    const critChance = upgrades.magnetLevel >= 4 ? 0.25 : 0.10; // permanent milk levels give more criticals
+    const criticalLevel = weaponLevelsRef.current.critical_milk || 0;
+    const critChance = criticalLevel >= 5 ? 0.5 : 0.1 + criticalLevel * 0.06;
     const isCritical = Math.random() < critChance;
-    const finalDamage = Math.round(isCritical ? baseDamage * 1.8 : baseDamage);
+    const finalDamage = Math.round(isCritical ? baseDamage * (criticalLevel >= 5 ? 2.3 : 1.8) : baseDamage);
 
     enemy.hp -= finalDamage;
 
@@ -1238,18 +1288,20 @@ export default function GameCanvas({
     damageDealtRef.current[source] = (damageDealtRef.current[source] || 0) + finalDamage;
 
     // Generate floating text
-    floatingTextsRef.current.push({
-      x: hitX || enemy.x,
-      y: (hitY || enemy.y) - 10,
-      text: `${finalDamage}${isCritical ? '!' : ''}`,
-      color: isCritical ? '#f97316' : '#f8fafc', // orange crit, white regular
-      life: 0,
-      maxLife: isCritical ? 50 : 35,
-      isCritical,
-    });
+    if (isCritical || Math.random() < 0.3) {
+      floatingTextsRef.current.push({
+        x: hitX || enemy.x,
+        y: (hitY || enemy.y) - 10,
+        text: `${finalDamage}${isCritical ? '!' : ''}`,
+        color: isCritical ? '#f97316' : '#f8fafc',
+        life: 0,
+        maxLife: isCritical ? 50 : 35,
+        isCritical,
+      });
+    }
 
     // Spawn tiny splatters
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < (isCritical ? 4 : 2); i++) {
       particlesRef.current.push({
         x: enemy.x,
         y: enemy.y,
@@ -1308,25 +1360,33 @@ export default function GameCanvas({
       gemValue = Math.round(gemValue * 1.2);
     }
 
-    // Spawn EXP Gem on location
-    gemsRef.current.push({
-      x: enemy.x,
-      y: enemy.y,
-      value: gemValue,
-      radius: gemRadius,
-      color: gemColor,
-      kind: 'exp',
-    });
+    let nearbyGem: Gem | undefined;
+    for (let gemIndex = gemsRef.current.length - 1, checked = 0; gemIndex >= 0 && checked < 24; gemIndex--, checked++) {
+      const candidate = gemsRef.current[gemIndex];
+      if (candidate.kind === 'exp' && !candidate.isMagnetized && Math.hypot(candidate.x - enemy.x, candidate.y - enemy.y) < 42) {
+        nearbyGem = candidate;
+        break;
+      }
+    }
+    if (nearbyGem) {
+      nearbyGem.value += gemValue;
+      nearbyGem.radius = Math.min(10, nearbyGem.radius + 0.25);
+    } else if (gemsRef.current.length < MAX_GEMS) {
+      gemsRef.current.push({ x: enemy.x, y: enemy.y, value: gemValue, radius: gemRadius, color: gemColor, kind: 'exp' });
+    } else {
+      const fallbackGem = gemsRef.current.find((gem) => gem.kind === 'exp');
+      if (fallbackGem) fallbackGem.value += gemValue;
+    }
 
     if (!enemy.isBoss) {
       const itemRoll = Math.random();
-      const itemKind = itemRoll < 0.008 ? 'bomb' : itemRoll < 0.022 ? 'magnet' : null;
+      const itemKind = itemRoll < 0.002 ? 'bomb' : itemRoll < 0.007 ? 'magnet' : null;
       if (itemKind) {
         gemsRef.current.push({
           x: enemy.x + (Math.random() - 0.5) * 24,
           y: enemy.y + (Math.random() - 0.5) * 24,
           value: 0,
-          radius: 11,
+          radius: 9,
           color: itemKind === 'magnet' ? '#f43f5e' : '#facc15',
           kind: itemKind,
         });
@@ -1334,7 +1394,7 @@ export default function GameCanvas({
     }
 
     // Explode sparks
-    for (let i = 0; i < (enemy.isBoss ? 30 : 10); i++) {
+    for (let i = 0; i < (enemy.isBoss ? 24 : 4); i++) {
       particlesRef.current.push({
         x: enemy.x,
         y: enemy.y,
@@ -1487,10 +1547,8 @@ export default function GameCanvas({
         continue;
       }
 
-      // Only experience gems are pulled by the passive pickup range.
-      if (g.kind === 'exp' && dist < stats.magnetRange) {
-        // Accelerate pull towards player
-        const speed = (1 - dist / stats.magnetRange) * 12 + 2;
+      if (g.kind === 'exp' && (g.isMagnetized || dist < stats.magnetRange)) {
+        const speed = g.isMagnetized ? Math.min(42, 14 + dist * 0.035) : (1 - dist / stats.magnetRange) * 12 + 2;
         g.x += (dx / dist) * speed * delta * 60;
         g.y += (dy / dist) * speed * delta * 60;
       }
@@ -1499,12 +1557,13 @@ export default function GameCanvas({
 
   const triggerGemCollect = (gem: Gem) => {
     const stats = gameStats.current;
-    let expGain = gem.kind === 'exp' ? gem.value : 0;
+    const levelExpMultiplier = stats.level <= 5 ? 1 : stats.level <= 10 ? 0.72 : stats.level <= 15 ? 0.48 : stats.level <= 20 ? 0.3 : 0.18;
+    let expGain = gem.kind === 'exp' ? Math.max(1, Math.round(gem.value * levelExpMultiplier)) : 0;
 
     if (gem.kind === 'magnet') {
-      expGain += gemsRef.current.reduce((sum, item) => sum + (item.kind === 'exp' ? item.value : 0), 0);
-      gemsRef.current = gemsRef.current.filter((item) => item.kind !== 'exp');
-      floatingTextsRef.current.push({ x: stats.playerX, y: stats.playerY - 55, text: '🧲 필드 경험치 회수!', color: '#fb7185', life: 0, maxLife: 70, isCritical: true });
+      gemsRef.current.forEach((item) => {
+        if (item.kind === 'exp') item.isMagnetized = true;
+      });
     } else if (gem.kind === 'bomb') {
       const halfWidth = canvasDimensions.width / 2 + 60;
       const halfHeight = canvasDimensions.height / 2 + 60;
@@ -1607,7 +1666,14 @@ export default function GameCanvas({
     }
     if (item.id === 'move_speed') {
       const permanentSpeedBonus = 1 + upgrades.speedLevel * 0.02;
-      gameStats.current.speed = character.baseSpeed * permanentSpeedBonus * (1 + (weaponLevelsRef.current.move_speed || 0) * 0.08);
+      const moveLevel = weaponLevelsRef.current.move_speed || 0;
+      gameStats.current.speed = character.baseSpeed * permanentSpeedBonus * (moveLevel >= 5 ? 1.6 : 1 + moveLevel * 0.08);
+    }
+    if (item.id === 'dash_boost') {
+      const dashLevel = weaponLevelsRef.current.dash_boost || 0;
+      const permanentReduction = upgrades.dashLevel * 0.04;
+      const skillReduction = dashLevel >= 5 ? 0.5 : dashLevel * 0.07;
+      gameStats.current.dashCooldown = Math.max(900, 3000 * (1 - permanentReduction) * (1 - skillReduction));
     }
 
     showLevelUpRef.current = false;
@@ -1659,6 +1725,7 @@ export default function GameCanvas({
     // Bound camera to stay within [0, WORLD_WIDTH] x [0, WORLD_HEIGHT]
     const cameraX = Math.max(0, Math.min(WORLD_WIDTH - canvas.width, stats.playerX - canvas.width / 2));
     const cameraY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, stats.playerY - canvas.height / 2));
+    const isVisible = (x: number, y: number, margin = 80) => x >= cameraX - margin && x <= cameraX + canvas.width + margin && y >= cameraY - margin && y <= cameraY + canvas.height + margin;
 
     // Stage-specific clean school floors with a difficulty tint.
     const floorPalette = stageId === 'elementary'
@@ -1716,6 +1783,7 @@ export default function GameCanvas({
 
     // 1. Draw Strike target warnings (Mother Lightning)
     strikesRef.current.forEach((s) => {
+      if (!isVisible(s.x, s.y, s.radius)) return;
       ctx.save();
       ctx.beginPath();
       ctx.arc(s.x - cameraX, s.y - cameraY, s.radius, 0, Math.PI * 2);
@@ -1767,21 +1835,37 @@ export default function GameCanvas({
 
     // 2. Draw Experience Prisms
     gemsRef.current.forEach((g) => {
+      if (!isVisible(g.x, g.y, 30)) return;
       ctx.save();
       const gx = g.x - cameraX;
       const gy = g.y - cameraY;
       const prismSize = Math.max(18, g.radius * 3.2);
       ctx.translate(gx, gy);
-      ctx.rotate(Math.sin(Date.now() / 350 + g.x * 0.01) * 0.18);
-      ctx.shadowBlur = 14;
+      if (g.kind === 'exp') ctx.rotate(Math.sin(Date.now() / 350 + g.x * 0.01) * 0.18);
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = g.kind === 'exp' ? 14 : 8;
       ctx.shadowColor = g.color;
       if (g.kind === 'magnet') {
-        ctx.font = `bold ${prismSize}px sans-serif`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff1f2';
+        ctx.fill();
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.font = 'bold 18px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('🧲', 0, 0);
       } else if (g.kind === 'bomb') {
-        ctx.font = `bold ${prismSize}px sans-serif`;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#fefce8';
+        ctx.fill();
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.font = 'bold 18px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('💣', 0, 0);
@@ -1802,6 +1886,7 @@ export default function GameCanvas({
 
     // 3. Draw Enemies
     enemiesRef.current.forEach((e) => {
+      if (!isVisible(e.x, e.y, e.radius + 20)) return;
       ctx.save();
       // Draw HP bar above enemy
       if (e.hp < e.maxHp) {
@@ -1912,6 +1997,7 @@ export default function GameCanvas({
 
     // 4. Draw Projectiles with weapon-specific neon silhouettes and trails.
     bulletsRef.current.forEach((b) => {
+      if (!isVisible(b.x, b.y, 30)) return;
       ctx.save();
       const bx = b.x - cameraX;
       const by = b.y - cameraY;
@@ -1966,7 +2052,7 @@ export default function GameCanvas({
     // 5. Draw ROTATING BOOKS ( 배리어 ) orbiting player
     const lvls = weaponLevelsRef.current;
     if (lvls.book > 0) {
-      const bookCount = lvls.book >= 5 ? 5 : lvls.book >= 3 ? 3 : lvls.book >= 1 ? 2 : 1;
+      const bookCount = lvls.book >= 5 ? 7 : lvls.book >= 3 ? 3 : lvls.book >= 1 ? 2 : 1;
       const bookRadius = 65 + lvls.book * 8;
       const bookSize = 12 + lvls.book * 2;
 
@@ -2043,6 +2129,7 @@ export default function GameCanvas({
 
     // 7. Draw Floating Text combat damage
     floatingTextsRef.current.forEach((t) => {
+      if (!isVisible(t.x, t.y, 40)) return;
       ctx.save();
       ctx.fillStyle = t.color;
       ctx.font = t.isCritical ? 'black 16px sans-serif' : 'bold 11px sans-serif';
@@ -2055,6 +2142,7 @@ export default function GameCanvas({
 
     // 8. Draw Explosive Particles
     particlesRef.current.forEach((p) => {
+      if (!isVisible(p.x, p.y, 30)) return;
       ctx.save();
       ctx.beginPath();
       ctx.arc(p.x - cameraX, p.y - cameraY, p.radius * (1 - p.life / p.maxLife), 0, Math.PI * 2);
