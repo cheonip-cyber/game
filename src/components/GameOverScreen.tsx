@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { GameScore } from '../types';
 import { Trophy, RefreshCw, Home, Share2, BarChart3, Save } from 'lucide-react';
+import { useRankings } from '../hooks/useRankings';
+import { isValidEnglishNickname, saveGlobalRanking } from '../services/rankings';
 
 interface GameOverScreenProps {
   victory: boolean;
@@ -34,7 +36,7 @@ export default function GameOverScreen({
   const [rankingName, setRankingName] = useState(nickname);
   const [registered, setRegistered] = useState(false);
   const registeredRef = useRef(false);
-  const [globalRankings, setGlobalRankings] = useState<GameScore[]>([]);
+  const { rankings: globalRankings, isLoading: rankingsLoading, error: rankingsError } = useRankings();
   const earnedPoints = Math.max(1, Math.round(score * 0.1));
 
   const totalDamage = Object.values(damageBreakdown).reduce((sum, d) => sum + d, 0);
@@ -52,39 +54,12 @@ export default function GameOverScreen({
     high: '고등학교 구역',
   };
 
-  const getStoredRankings = (): GameScore[] => {
-    const stored = localStorage.getItem('school_attack_rankings');
-    if (!stored) return [];
-
-    try {
-      const parsed = JSON.parse(stored) as GameScore[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error(e);
-      return [];
-    }
-  };
-
-  const buildRankingView = (scores: GameScore[]) => {
-    return [...scores]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-  };
-
-  const loadRankings = () => {
-    setGlobalRankings(buildRankingView(getStoredRankings()));
-  };
-
-  useEffect(() => {
-    loadRankings();
-  }, []);
-
-  const handleRegisterRanking = () => {
+  const handleRegisterRanking = async () => {
     if (registeredRef.current) return;
 
     const trimmedName = rankingName.trim();
-    if (!trimmedName) {
-      alert('등록할 이름을 기입해주세요!');
+    if (!isValidEnglishNickname(trimmedName)) {
+      alert('닉네임은 영문 알파벳 1~20자로 입력해주세요.');
       return;
     }
 
@@ -102,9 +77,7 @@ export default function GameOverScreen({
     };
 
     try {
-      const currentRankings = getStoredRankings();
-      const updatedRankings = [newScore, ...currentRankings];
-      localStorage.setItem('school_attack_rankings', JSON.stringify(updatedRankings));
+      await saveGlobalRanking(newScore);
       localStorage.setItem('school_attack_nickname', trimmedName);
 
       const currentPoints = Number.parseInt(localStorage.getItem('school_attack_points') || '0', 10) || 0;
@@ -114,12 +87,11 @@ export default function GameOverScreen({
       localStorage.setItem('school_attack_total_score', (totalCumulative + score).toString());
 
       setRegistered(true);
-      setGlobalRankings(buildRankingView(updatedRankings));
       onRankingRegistered();
     } catch (error) {
       registeredRef.current = false;
       console.error('Ranking save failed', error);
-      alert('랭킹 저장에 실패했습니다. 브라우저 저장 공간을 확인해주세요.');
+      alert('글로벌 랭킹 저장에 실패했습니다. Firebase Authentication과 Firestore 설정을 확인해주세요.');
     }
   };
 
@@ -230,9 +202,9 @@ export default function GameOverScreen({
                   <input
                     type="text"
                     value={rankingName}
-                    onChange={(e) => setRankingName(e.target.value)}
+                    onChange={(e) => setRankingName(e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 20))}
                     maxLength={20}
-                    placeholder="닉네임 입력"
+                    placeholder="English nickname"
                     className="flex-1 bg-slate-950 border border-yellow-700/50 focus:border-yellow-400 px-4 py-3 rounded-xl text-slate-100 font-bold focus:outline-none text-sm"
                   />
                   <button
@@ -257,11 +229,17 @@ export default function GameOverScreen({
                 <Trophy className="w-5 h-5 text-yellow-400" />
                 <h3 className="text-sm font-black text-slate-300 uppercase tracking-widest">교내 명예의 전당 TOP 10</h3>
               </div>
-              <span className="text-[10px] text-slate-500 font-mono font-bold uppercase">LOCAL RECORD</span>
+              <span className="text-[10px] text-emerald-400 font-mono font-bold uppercase">LIVE · FIRESTORE</span>
             </div>
 
             <div className="space-y-1.5 max-h-[46dvh] overflow-y-auto pr-1">
-              {globalRankings.map((rk, idx) => {
+              {rankingsLoading ? (
+                <p className="text-xs text-cyan-400 py-5 text-center animate-pulse">글로벌 랭킹 연결 중...</p>
+              ) : rankingsError ? (
+                <p className="text-xs text-rose-400 py-5 text-center">{rankingsError}</p>
+              ) : globalRankings.length === 0 ? (
+                <p className="text-xs text-slate-500 py-5 text-center">아직 등록된 글로벌 기록이 없습니다.</p>
+              ) : globalRankings.map((rk, idx) => {
                 const isUser = rk.nickname === rankingName.trim() && rk.score === score;
                 return (
                   <div
