@@ -94,6 +94,7 @@ interface Gem {
   value: number; // Experience value
   radius: number;
   color: string;
+  kind: 'exp' | 'magnet' | 'bomb';
 }
 
 interface Particle {
@@ -880,8 +881,8 @@ export default function GameCanvas({
   const fireWeapons = (delta: number, now: number) => {
     const stats = gameStats.current;
     const lvls = weaponLevelsRef.current;
-    const damageMultiplier = 1 + upgrades.damageLevel * 0.04;
-    const attackSpeedMultiplier = 1 + (lvls.attack_speed || 0) * 0.08;
+    const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
+    const basicAttackSpeedMultiplier = 1 + (lvls.attack_speed || 0) * 0.08;
     const [basicAttack, , skillAttack] = FIELD_BALANCE[stageId][difficulty];
     const levelAttackScale = 1 + 0.08 * Math.max(0, stats.level - 1);
 
@@ -889,7 +890,7 @@ export default function GameCanvas({
     // PENCIL Weapon
     if (lvls.pencil > 0) {
       // Cooldown reduces as weapon level increases
-      const cooldown = Math.max(180, (800 - lvls.pencil * 80) / attackSpeedMultiplier);
+      const cooldown = Math.max(180, (800 - lvls.pencil * 80) / basicAttackSpeedMultiplier);
       if (now - lastFiredRef.current.pencil >= cooldown) {
         lastFiredRef.current.pencil = now;
 
@@ -962,7 +963,7 @@ export default function GameCanvas({
 
     // CHALK Homing Missiles
     if (lvls.chalk > 0) {
-      const cooldown = Math.max(500, (1500 - lvls.chalk * 150) / attackSpeedMultiplier);
+      const cooldown = Math.max(500, 1500 - lvls.chalk * 150);
       if (now - lastFiredRef.current.chalk >= cooldown) {
         lastFiredRef.current.chalk = now;
 
@@ -997,7 +998,7 @@ export default function GameCanvas({
 
     // MOTHER LIGHTNING Strike
     if (lvls.mother > 0) {
-      const cooldown = Math.max(2200, (5000 - lvls.mother * 500) / attackSpeedMultiplier);
+      const cooldown = Math.max(2200, 5000 - lvls.mother * 500);
       if (now - lastFiredRef.current.mother >= cooldown) {
         lastFiredRef.current.mother = now;
 
@@ -1163,8 +1164,8 @@ export default function GameCanvas({
   const updateStrikes = (delta: number) => {
     const strikes = strikesRef.current;
     const now = Date.now();
-    const damageMultiplier = 1 + upgrades.damageLevel * 0.04;
     const lvls = weaponLevelsRef.current;
+    const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
 
     for (let i = strikes.length - 1; i >= 0; i--) {
       const s = strikes[i];
@@ -1333,7 +1334,23 @@ export default function GameCanvas({
       value: gemValue,
       radius: gemRadius,
       color: gemColor,
+      kind: 'exp',
     });
+
+    if (!enemy.isBoss) {
+      const itemRoll = Math.random();
+      const itemKind = itemRoll < 0.008 ? 'bomb' : itemRoll < 0.022 ? 'magnet' : null;
+      if (itemKind) {
+        gemsRef.current.push({
+          x: enemy.x + (Math.random() - 0.5) * 24,
+          y: enemy.y + (Math.random() - 0.5) * 24,
+          value: 0,
+          radius: 11,
+          color: itemKind === 'magnet' ? '#f43f5e' : '#facc15',
+          kind: itemKind,
+        });
+      }
+    }
 
     // Explode sparks
     for (let i = 0; i < (enemy.isBoss ? 30 : 10); i++) {
@@ -1357,7 +1374,7 @@ export default function GameCanvas({
 
     const baseDefense = FIELD_BALANCE[stageId][difficulty][1];
     const levelDefense = baseDefense + 0.5 * Math.max(0, stats.level - 1);
-    const badgeReduction = Math.min(0.45, (weaponLevelsRef.current.clean_badge || 0) * 0.08);
+    const badgeReduction = Math.min(0.1, (weaponLevelsRef.current.clean_badge || 0) * 0.02);
     const finalAmount = Math.max(1, Math.round(Math.max(1, amount - levelDefense) * (1 - badgeReduction)));
 
     stats.hp -= finalAmount;
@@ -1483,13 +1500,13 @@ export default function GameCanvas({
 
       // Collect gem
       if (dist < stats.playerRadius + g.radius) {
-        triggerGemCollect(g);
         gems.splice(i, 1);
+        triggerGemCollect(g);
         continue;
       }
 
-      // Magnetic pull attraction
-      if (dist < stats.magnetRange) {
+      // Only experience gems are pulled by the passive pickup range.
+      if (g.kind === 'exp' && dist < stats.magnetRange) {
         // Accelerate pull towards player
         const speed = (1 - dist / stats.magnetRange) * 12 + 2;
         g.x += (dx / dist) * speed * delta * 60;
@@ -1500,10 +1517,33 @@ export default function GameCanvas({
 
   const triggerGemCollect = (gem: Gem) => {
     const stats = gameStats.current;
-    stats.exp += gem.value;
+    let expGain = gem.kind === 'exp' ? gem.value : 0;
+
+    if (gem.kind === 'magnet') {
+      expGain += gemsRef.current.reduce((sum, item) => sum + (item.kind === 'exp' ? item.value : 0), 0);
+      gemsRef.current = gemsRef.current.filter((item) => item.kind !== 'exp');
+      floatingTextsRef.current.push({ x: stats.playerX, y: stats.playerY - 55, text: '🧲 필드 경험치 회수!', color: '#fb7185', life: 0, maxLife: 70, isCritical: true });
+    } else if (gem.kind === 'bomb') {
+      const halfWidth = canvasDimensions.width / 2 + 60;
+      const halfHeight = canvasDimensions.height / 2 + 60;
+      for (let enemyIndex = enemiesRef.current.length - 1; enemyIndex >= 0; enemyIndex--) {
+        const enemy = enemiesRef.current[enemyIndex];
+        if (Math.abs(enemy.x - stats.playerX) > halfWidth || Math.abs(enemy.y - stats.playerY) > halfHeight) continue;
+        if (enemy.isBoss) {
+          const bombDamage = Math.max(100, Math.round(enemy.maxHp * 0.2));
+          dealDamageToEnemy(enemy, bombDamage, '교내 정화 폭탄', enemy.x, enemy.y);
+        } else {
+          enemiesRef.current.splice(enemyIndex, 1);
+          triggerEnemyDeath(enemy);
+        }
+      }
+      floatingTextsRef.current.push({ x: stats.playerX, y: stats.playerY - 55, text: '💣 화면 정화!', color: '#facc15', life: 0, maxLife: 70, isCritical: true });
+    }
+
+    stats.exp += expGain;
 
     // Trigger score increase
-    stats.score += gem.value * 2;
+    stats.score += expGain * 2;
 
     // Particles sparkle
     for (let i = 0; i < 5; i++) {
@@ -1753,7 +1793,17 @@ export default function GameCanvas({
       ctx.rotate(Math.sin(Date.now() / 350 + g.x * 0.01) * 0.18);
       ctx.shadowBlur = 14;
       ctx.shadowColor = g.color;
-      if (expPrismImageRef.current) {
+      if (g.kind === 'magnet') {
+        ctx.font = `bold ${prismSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🧲', 0, 0);
+      } else if (g.kind === 'bomb') {
+        ctx.font = `bold ${prismSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💣', 0, 0);
+      } else if (expPrismImageRef.current) {
         ctx.drawImage(expPrismImageRef.current, -prismSize / 2, -prismSize / 2, prismSize, prismSize);
       } else {
         ctx.beginPath();
@@ -2072,24 +2122,34 @@ export default function GameCanvas({
       const buttonX = canvas.width - 60;
       const buttonY = canvas.height - 60;
       const bRad = 28;
+      const dashRemainingMs = Math.max(0, gameStats.current.dashCooldown - (Date.now() - gameStats.current.lastDashTime));
+      const isDashReadyNow = dashRemainingMs <= 0;
 
       ctx.save();
       ctx.beginPath();
       ctx.arc(buttonX, buttonY, bRad, 0, Math.PI * 2);
-      ctx.fillStyle = hudDashReady ? 'rgba(99, 102, 241, 0.35)' : 'rgba(30, 41, 59, 0.6)';
-      ctx.strokeStyle = hudDashReady ? '#818cf8' : '#475569';
+      ctx.fillStyle = isDashReadyNow ? 'rgba(99, 102, 241, 0.35)' : 'rgba(30, 41, 59, 0.6)';
+      ctx.strokeStyle = isDashReadyNow ? '#818cf8' : '#475569';
       ctx.lineWidth = 2.5;
-      ctx.shadowBlur = hudDashReady ? 12 : 0;
+      ctx.shadowBlur = isDashReadyNow ? 12 : 0;
       ctx.shadowColor = '#818cf8';
       ctx.fill();
       ctx.stroke();
 
       // Dash symbol
-      ctx.fillStyle = hudDashReady ? '#ffffff' : '#94a3b8';
+      ctx.fillStyle = isDashReadyNow ? '#ffffff' : '#e0e7ff';
       ctx.font = 'black 11px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(hudDashReady ? 'DASH' : 'WAIT', buttonX, buttonY);
+      const dashProgress = dashRemainingMs / gameStats.current.dashCooldown;
+      if (!isDashReadyNow) {
+        ctx.beginPath();
+        ctx.arc(buttonX, buttonY, bRad - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * dashProgress);
+        ctx.strokeStyle = '#a5b4fc';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+      ctx.fillText(isDashReadyNow ? 'DASH' : `${(dashRemainingMs / 1000).toFixed(1)}s`, buttonX, buttonY);
       ctx.restore();
     }
 
