@@ -110,6 +110,22 @@ export const LEVEL_UP_CHOICES: InGameItem[] = [
     color: '#eab308', // yellow-500
   },
   {
+    id: 'move_speed',
+    name: '복도 질주 훈련',
+    description: '위험한 복도를 더 빠르게 돌파할 수 있도록 이동 능력을 훈련합니다.',
+    effect: '이동 속도 +8%',
+    rarity: '일반',
+    color: '#22d3ee',
+  },
+  {
+    id: 'attack_speed',
+    name: '속독 연사 훈련',
+    description: '모든 자동 공격의 준비 동작을 단축해 더 자주 공격합니다.',
+    effect: '모든 스킬 공격 속도 +8%',
+    rarity: '희귀',
+    color: '#fb923c',
+  },
+  {
     id: 'vitamin',
     name: '종합 비타민 보충',
     description: '급속 비타민 피로회복제. 체력을 가득 회복하고 최대 체력 한도를 영구적으로 높입니다.',

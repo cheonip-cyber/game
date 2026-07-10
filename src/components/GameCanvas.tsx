@@ -33,6 +33,25 @@ function getRequiredExpForLevel(level: number): number {
   return 500 + level * 55;
 }
 
+const FIELD_BALANCE = {
+  elementary: {
+    '하': [20, 4, 30, 15, 1.0], '중': [40, 8, 60, 30, 1.3],
+    '상': [60, 12, 90, 45, 1.6], '해골': [80, 16, 120, 62, 2.0],
+  },
+  middle: {
+    '하': [40, 8, 60, 30, 1.2], '중': [80, 16, 120, 62, 1.5],
+    '상': [120, 24, 180, 94, 1.9], '해골': [160, 32, 240, 125, 2.4],
+  },
+  high: {
+    '하': [60, 12, 90, 47, 1.5], '중': [120, 24, 180, 94, 2.0],
+    '상': [180, 36, 270, 140, 2.5], '해골': [240, 48, 360, 187, 3.0],
+  },
+} as const;
+
+const SCORE_FIELD_WEIGHT: Record<StageId, number> = { elementary: 1, middle: 1.8, high: 3 };
+const SCORE_DIFFICULTY_WEIGHT: Record<Difficulty, number> = { '하': 1, '중': 1.4, '상': 2, '해골': 3 };
+const MAX_SKILL_LEVEL = 5;
+
 interface Bullet {
   id: string;
   x: number;
@@ -186,6 +205,7 @@ export default function GameCanvas({
   const [hudKills, setHudKills] = useState(0);
   const [hudScore, setHudScore] = useState(0);
   const [hudDashReady, setHudDashReady] = useState(true);
+  const [hudDashCooldown, setHudDashCooldown] = useState(0);
 
   // Weapons Level Mapping (id -> level)
   const [weaponLevels, setWeaponLevels] = useState<Record<string, number>>(() => {
@@ -232,17 +252,17 @@ export default function GameCanvas({
   // Upgrades stat calculations
   useEffect(() => {
     // Apply permanent upgrades
-    const hpBonus = 1 + upgrades.maxHpLevel * 0.1;
-    const speedBonus = 1 + upgrades.speedLevel * 0.05;
-    const damageMultiplier = 1 + upgrades.damageLevel * 0.1;
-    const magnetBonus = 1 + upgrades.magnetLevel * 0.15;
-    const dashCooldownReduction = upgrades.dashLevel * 0.1;
+    const hpBonus = 1 + upgrades.maxHpLevel * 0.05;
+    const speedBonus = 1 + upgrades.speedLevel * 0.02;
+    const magnetBonus = 1 + upgrades.magnetLevel * 0.06;
+    const dashCooldownReduction = upgrades.dashLevel * 0.04;
 
     gameStats.current.maxHp = Math.round(character.baseHp * hpBonus);
     gameStats.current.hp = gameStats.current.maxHp;
-    gameStats.current.speed = character.baseSpeed * speedBonus;
+    const inGameSpeedBonus = 1 + (weaponLevelsRef.current.move_speed || 0) * 0.08;
+    gameStats.current.speed = character.baseSpeed * speedBonus * inGameSpeedBonus;
     gameStats.current.magnetRange = character.baseMagnet * magnetBonus;
-    gameStats.current.dashCooldown = Math.max(1000, 3000 * (1 - dashCooldownReduction));
+    gameStats.current.dashCooldown = Math.max(1500, 3000 * (1 - dashCooldownReduction));
 
     setHudMaxHp(gameStats.current.maxHp);
     setHudHp(gameStats.current.hp);
@@ -396,14 +416,8 @@ export default function GameCanvas({
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
 
-      // Virtual Dash button region detection
-      // Button center is at rect.width - 60, rect.height - 60, radius 28
-      const buttonX = rect.width - 60;
-      const buttonY = rect.height - 60;
-      const distToDash = Math.hypot(x - buttonX, y - buttonY);
-
-      if (distToDash < 45 || (x > rect.width - 110 && y > rect.height - 110)) {
-        // Explicitly trigger dash for this touch
+      // The first touch controls movement; any additional finger dashes anywhere.
+      if (joystickTouchId.current !== null && touch.identifier !== joystickTouchId.current) {
         e.preventDefault();
         triggerDash();
         continue;
@@ -518,21 +532,13 @@ export default function GameCanvas({
     let typeName = '스웜 (일진 짱짱벌레)';
     let attackCooldown = 1000;
 
-    // Adjust based on Difficulty multiplier
-    let mult = 1.0;
-    if (difficulty === '중') mult = 1.8;
-    else if (difficulty === '상') mult = 3.5;
-    else if (difficulty === '해골') mult = 6.0;
-
-    // Stage scaling
-    let stageMult = 1.0;
-    if (stageId === 'middle') stageMult = 1.6;
-    else if (stageId === 'high') stageMult = 2.5;
-
-    const levelHpScale = 1 + Math.max(0, stats.level - 1) * 0.08;
-    const levelDamageScale = 1 + Math.max(0, stats.level - 1) * 0.035;
-    const scaleHp = (val: number) => Math.round(val * mult * stageMult * levelHpScale);
-    const scaleDmg = (val: number) => Math.round(val * (1 + (mult - 1) * 0.4) * stageMult * levelDamageScale);
+    const [, , , enemyAttack] = FIELD_BALANCE[stageId][difficulty];
+    const elapsedMinutes = stats.time / 60;
+    const hpScale = 1 + 0.18 * elapsedMinutes;
+    const damageScale = (1 + 0.12 * elapsedMinutes) * (1 + 0.02 * stats.level);
+    const scaleHp = (val: number) => Math.round(val * hpScale);
+    const scaleDmg = (ratio: number) => Math.max(1, Math.round(enemyAttack * ratio * damageScale * 0.6));
+    const schoolSize = stageId === 'elementary' ? 0.88 : stageId === 'middle' ? 1 : 1.18;
 
     switch (type) {
       case 'swarm':
@@ -540,7 +546,7 @@ export default function GameCanvas({
         hp = scaleHp(12);
         speed = 2.4;
         radius = 11;
-        damage = scaleDmg(6);
+        damage = scaleDmg(0.4);
         color = '#a855f7'; // purple-500
         scoreValue = 80;
         break;
@@ -549,7 +555,7 @@ export default function GameCanvas({
         hp = scaleHp(22);
         speed = 1.4;
         radius = 14;
-        damage = scaleDmg(10);
+        damage = scaleDmg(0.65);
         color = '#84cc16'; // lime-500
         scoreValue = 150;
         break;
@@ -558,7 +564,7 @@ export default function GameCanvas({
         hp = scaleHp(60);
         speed = 0.7;
         radius = 24;
-        damage = scaleDmg(18);
+        damage = scaleDmg(0.85);
         color = '#3b82f6'; // blue-500
         scoreValue = 250;
         break;
@@ -567,7 +573,7 @@ export default function GameCanvas({
         hp = scaleHp(120);
         speed = 1.6;
         radius = 18;
-        damage = scaleDmg(24);
+        damage = scaleDmg(1);
         color = '#f97316'; // orange-500
         scoreValue = 400;
         break;
@@ -576,7 +582,7 @@ export default function GameCanvas({
         hp = scaleHp(1200);
         speed = 1.2;
         radius = 32;
-        damage = scaleDmg(35);
+        damage = scaleDmg(1.35);
         color = '#ef4444'; // red-500
         scoreValue = 2000;
         isBoss = true;
@@ -585,6 +591,7 @@ export default function GameCanvas({
     }
 
     speed += Math.min(1.8, Math.max(0, stats.level - 1) * 0.03);
+    radius = Math.round(radius * schoolSize);
 
     // Shapes and slight color modifications for variety
     let shape: 'circle' | 'square' | 'triangle' | 'pentagon' | 'star' | 'cross' | 'hexagon' = 'circle';
@@ -607,7 +614,8 @@ export default function GameCanvas({
     const variantRand = Math.random();
     if (type === 'swarm') {
       const swarmColors = ['#a855f7', '#c084fc', '#8b5cf6', '#d946ef', '#e879f9'];
-      finalColor = swarmColors[Math.floor(variantRand * swarmColors.length)];
+      const schoolColors = stageId === 'elementary' ? ['#38bdf8', '#22d3ee', '#34d399'] : stageId === 'middle' ? swarmColors : ['#f43f5e', '#dc2626', '#7c3aed'];
+      finalColor = schoolColors[Math.floor(variantRand * schoolColors.length)];
     } else if (type === 'blaster') {
       const blasterColors = ['#84cc16', '#a3e635', '#22c55e', '#10b981', '#4ade80'];
       finalColor = blasterColors[Math.floor(variantRand * blasterColors.length)];
@@ -681,6 +689,9 @@ export default function GameCanvas({
           // 2. Dash cooldown indicators
           if (!hudDashReady && (now - stats.lastDashTime >= stats.dashCooldown)) {
             setHudDashReady(true);
+            setHudDashCooldown(0);
+          } else if (!hudDashReady) {
+            setHudDashCooldown(Math.max(0, (stats.dashCooldown - (now - stats.lastDashTime)) / 1000));
           }
 
           // Dash runtime logic
@@ -751,7 +762,8 @@ export default function GameCanvas({
 
           const levelTier = Math.floor((stats.level - 1) / 3);
           const timeTier = Math.floor(stats.time / 90);
-          const spawnInterval = Math.max(0.18, 1.25 - levelTier * 0.08 - timeTier * 0.035);
+          const spawnFrequency = FIELD_BALANCE[stageId][difficulty][4];
+          const spawnInterval = Math.max(0.18, (1.25 - levelTier * 0.08 - timeTier * 0.035) / spawnFrequency);
           if (enemySpawnTimer >= spawnInterval) {
             enemySpawnTimer = 0;
 
@@ -868,13 +880,16 @@ export default function GameCanvas({
   const fireWeapons = (delta: number, now: number) => {
     const stats = gameStats.current;
     const lvls = weaponLevelsRef.current;
-    const damageMultiplier = 1 + upgrades.damageLevel * 0.1;
+    const damageMultiplier = 1 + upgrades.damageLevel * 0.04;
+    const attackSpeedMultiplier = 1 + (lvls.attack_speed || 0) * 0.08;
+    const [basicAttack, , skillAttack] = FIELD_BALANCE[stageId][difficulty];
+    const levelAttackScale = 1 + 0.08 * Math.max(0, stats.level - 1);
 
     // Check if character/weapon is active
     // PENCIL Weapon
     if (lvls.pencil > 0) {
       // Cooldown reduces as weapon level increases
-      const cooldown = Math.max(200, 800 - lvls.pencil * 80);
+      const cooldown = Math.max(180, (800 - lvls.pencil * 80) / attackSpeedMultiplier);
       if (now - lastFiredRef.current.pencil >= cooldown) {
         lastFiredRef.current.pencil = now;
 
@@ -886,7 +901,7 @@ export default function GameCanvas({
           // Shoot bullets based on level
           const count = lvls.pencil >= 4 ? 3 : lvls.pencil >= 2 ? 2 : 1;
           const pierce = lvls.pencil >= 3 ? 2 : 1;
-          const damage = Math.round(15 * (1 + lvls.pencil * 0.2) * damageMultiplier);
+          const damage = Math.round(basicAttack * levelAttackScale * (1 + (lvls.pencil - 1) * 0.15) * damageMultiplier);
 
           for (let i = 0; i < count; i++) {
             const spreadAngle = angle + (i - (count - 1) / 2) * 0.15;
@@ -913,7 +928,7 @@ export default function GameCanvas({
       bookAngleRef.current += 0.04 * (1 + lvls.book * 0.1) * timeMultiplier;
       
       const bookCount = lvls.book >= 5 ? 5 : lvls.book >= 3 ? 3 : lvls.book >= 1 ? 2 : 1;
-      const damage = Math.round(8 * (1 + lvls.book * 0.15) * damageMultiplier);
+      const damage = Math.round(skillAttack * 0.45 * levelAttackScale * (1 + (lvls.book - 1) * 0.15) * damageMultiplier);
 
       // We do damage check in standard loop for books (collision with player surrounding radius)
       const bookRadius = 65 + lvls.book * 8;
@@ -947,13 +962,13 @@ export default function GameCanvas({
 
     // CHALK Homing Missiles
     if (lvls.chalk > 0) {
-      const cooldown = Math.max(600, 1500 - lvls.chalk * 150);
+      const cooldown = Math.max(500, (1500 - lvls.chalk * 150) / attackSpeedMultiplier);
       if (now - lastFiredRef.current.chalk >= cooldown) {
         lastFiredRef.current.chalk = now;
 
         // Fire homing bullets at random enemies
         const count = lvls.chalk >= 4 ? 4 : lvls.chalk >= 2 ? 2 : 1;
-        const damage = Math.round(20 * (1 + lvls.chalk * 0.2) * damageMultiplier);
+        const damage = Math.round(skillAttack * levelAttackScale * (1 + (lvls.chalk - 1) * 0.15) * damageMultiplier);
 
         for (let i = 0; i < count; i++) {
           if (enemiesRef.current.length > 0) {
@@ -982,7 +997,7 @@ export default function GameCanvas({
 
     // MOTHER LIGHTNING Strike
     if (lvls.mother > 0) {
-      const cooldown = Math.max(2500, 5000 - lvls.mother * 500);
+      const cooldown = Math.max(2200, (5000 - lvls.mother * 500) / attackSpeedMultiplier);
       if (now - lastFiredRef.current.mother >= cooldown) {
         lastFiredRef.current.mother = now;
 
@@ -1106,8 +1121,33 @@ export default function GameCanvas({
           bullets.splice(i, 1);
         }
       } else {
-        // Enemy bullet colliding with Player
+        // Orbiting books intercept enemy bullets before they can reach the player.
         const stats = gameStats.current;
+        const bookLevel = weaponLevelsRef.current.book || 0;
+        if (bookLevel > 0) {
+          const bookCount = bookLevel >= 5 ? 5 : bookLevel >= 3 ? 3 : 2;
+          const bookRadius = 65 + bookLevel * 8;
+          const bookSize = 12 + bookLevel * 2;
+          let blocked = false;
+          for (let bookIndex = 0; bookIndex < bookCount; bookIndex++) {
+            const offset = (Math.PI * 2 / bookCount) * bookIndex;
+            const bx = stats.playerX + Math.cos(bookAngleRef.current + offset) * bookRadius;
+            const by = stats.playerY + Math.sin(bookAngleRef.current + offset) * bookRadius;
+            if (Math.hypot(bx - b.x, by - b.y) < bookSize + b.radius) {
+              blocked = true;
+              for (let spark = 0; spark < 6; spark++) {
+                particlesRef.current.push({ x: b.x, y: b.y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, radius: 2, color: '#4ade80', life: 0, maxLife: 18 });
+              }
+              break;
+            }
+          }
+          if (blocked) {
+            bullets.splice(i, 1);
+            continue;
+          }
+        }
+
+        // Enemy bullet colliding with Player
         if (!stats.isDashing) {
           const dist = Math.hypot(stats.playerX - b.x, stats.playerY - b.y);
           if (dist < stats.playerRadius + b.radius) {
@@ -1123,7 +1163,7 @@ export default function GameCanvas({
   const updateStrikes = (delta: number) => {
     const strikes = strikesRef.current;
     const now = Date.now();
-    const damageMultiplier = 1 + upgrades.damageLevel * 0.1;
+    const damageMultiplier = 1 + upgrades.damageLevel * 0.04;
     const lvls = weaponLevelsRef.current;
 
     for (let i = strikes.length - 1; i >= 0; i--) {
@@ -1134,7 +1174,9 @@ export default function GameCanvas({
         s.triggered = true;
 
         // Strike impact damage
-        const baseDamage = 80 * (1 + lvls.mother * 0.4) * damageMultiplier;
+        const skillAttack = FIELD_BALANCE[stageId][difficulty][2];
+        const levelAttackScale = 1 + 0.08 * Math.max(0, gameStats.current.level - 1);
+        const baseDamage = skillAttack * levelAttackScale * (1 + (lvls.mother - 1) * 0.25) * damageMultiplier;
         triggerAreaDamage(s.x, s.y, s.radius, baseDamage, '엄마 소환 번개');
 
         // Apply stun to all enemies hit
@@ -1313,9 +1355,10 @@ export default function GameCanvas({
     const stats = gameStats.current;
     if (stats.isDashing || stats.hp <= 0) return;
 
-    // Apply clean badge defense upgrades
-    const defenseBonus = upgrades.maxHpLevel >= 4 ? 0.30 : upgrades.maxHpLevel >= 2 ? 0.15 : 0;
-    const finalAmount = Math.max(1, Math.round(amount * (1 - defenseBonus)));
+    const baseDefense = FIELD_BALANCE[stageId][difficulty][1];
+    const levelDefense = baseDefense + 0.5 * Math.max(0, stats.level - 1);
+    const badgeReduction = Math.min(0.45, (weaponLevelsRef.current.clean_badge || 0) * 0.08);
+    const finalAmount = Math.max(1, Math.round(Math.max(1, amount - levelDefense) * (1 - badgeReduction)));
 
     stats.hp -= finalAmount;
     setHudHp(Math.round(stats.hp));
@@ -1509,9 +1552,8 @@ export default function GameCanvas({
     if (showLevelUpRef.current) return;
     showLevelUpRef.current = true;
 
-    // Select 3 random level up items
-    // Shuffle choices array
-    const shuffled = [...LEVEL_UP_CHOICES].sort(() => 0.5 - Math.random());
+    const availableChoices = LEVEL_UP_CHOICES.filter((item) => (weaponLevelsRef.current[item.id] || 0) < MAX_SKILL_LEVEL);
+    const shuffled = [...availableChoices].sort(() => 0.5 - Math.random());
     setLevelUpChoices(shuffled.slice(0, 3));
     setShowLevelUp(true);
   };
@@ -1520,7 +1562,7 @@ export default function GameCanvas({
     // Update weapon level
     setWeaponLevels((prev) => {
       const current = prev[item.id] || 0;
-      const nextLvl = current + 1;
+      const nextLvl = Math.min(MAX_SKILL_LEVEL, current + 1);
       const updated = { ...prev, [item.id]: nextLvl };
       
       // Keep mutable ref in sync for lightning/bullets speed
@@ -1534,6 +1576,10 @@ export default function GameCanvas({
       gameStats.current.hp = Math.min(gameStats.current.maxHp, gameStats.current.hp + 40);
       setHudMaxHp(gameStats.current.maxHp);
       setHudHp(Math.round(gameStats.current.hp));
+    }
+    if (item.id === 'move_speed') {
+      const permanentSpeedBonus = 1 + upgrades.speedLevel * 0.02;
+      gameStats.current.speed = character.baseSpeed * permanentSpeedBonus * (1 + (weaponLevelsRef.current.move_speed || 0) * 0.08);
     }
 
     showLevelUpRef.current = false;
@@ -2159,14 +2205,15 @@ export default function GameCanvas({
           {/* Center Status Banner (MM:SS, Kills, Stage multiplier) */}
           <div className="col-span-2 row-start-2 flex items-center justify-between gap-2 bg-slate-950/80 border border-slate-900 px-3 py-1.5 rounded-xl pointer-events-auto shadow-lg backdrop-blur">
             <span className="text-lg font-black text-cyan-400 font-mono tracking-wider select-text">
-              {formatTime(hudTime)}
+              <span className="block text-[8px] text-cyan-200 tracking-normal leading-none mb-0.5">선생님 도착까지</span>
+              {formatTime(Math.max(0, gameStats.current.victoryTargetTime - hudTime))}
             </span>
             <div className="flex items-center gap-1.5 text-[9px] text-slate-400 font-semibold font-mono">
-              <span>Lv.{hudLevel}</span>
+              <span className="text-cyan-300 text-xs font-black">LV.{hudLevel}</span>
               <span className="text-slate-700">|</span>
               <span>처치 {hudKills}</span>
               <span className="text-slate-700">|</span>
-              <span className="text-yellow-400 font-bold">{hudScore.toLocaleString()} PTS</span>
+              <span className="text-yellow-300 text-xs font-black drop-shadow">{hudScore.toLocaleString()} PTS</span>
             </div>
           </div>
 
@@ -2213,7 +2260,7 @@ export default function GameCanvas({
           }`}>
             <span>🏃‍♂️ 체육복 대시</span>
             <span className="bg-slate-800 px-1 py-0.5 rounded">
-              {hudDashReady ? 'READY' : 'CD'}
+              {hudDashReady ? 'READY' : `${hudDashCooldown.toFixed(1)}s`}
             </span>
           </div>
         </div>

@@ -82,12 +82,12 @@ export default function App() {
     // Return all spent points
     let refundedPoints = points;
     
-    // Cost formula matches UpgradeMenu: (level + 1) * 350
+    // Cost formula matches UpgradeMenu.
     // We sum up the cost paid for each level
     const getPaidCostSum = (level: number) => {
       let sum = 0;
       for (let i = 0; i < level; i++) {
-        sum += (i + 1) * 350;
+        sum += 700 + i * 450 + i * i * 80;
       }
       return sum;
     };

@@ -13,51 +13,51 @@ interface UpgradeMenuProps {
 const UPGRADE_DETAILS = {
   maxHpLevel: {
     name: '급식 전용 맷집 체력',
-    description: '최대 체력을 10% 증가시키고 견고해집니다.',
+    description: '최대 체력을 5% 증가시키고 견고해집니다.',
     icon: Shield,
     color: 'text-emerald-400 bg-emerald-950/40 border-emerald-800',
     statName: '최대 HP',
-    statBonus: '+10%',
+    statBonus: '+5%',
   },
   speedLevel: {
     name: '등교 전용 초고속 발걸음',
-    description: '기본 이동 속도를 5% 증가시킵니다.',
+    description: '기본 이동 속도를 2% 증가시킵니다.',
     icon: Zap,
     color: 'text-cyan-400 bg-cyan-950/40 border-cyan-800',
     statName: '이동 속도',
-    statBonus: '+5%',
+    statBonus: '+2%',
   },
   damageLevel: {
     name: '샤프심 필기 타격력',
-    description: '기본 공격 데미지를 10% 증가시킵니다.',
+    description: '기본 공격 데미지를 4% 증가시킵니다.',
     icon: Swords,
     color: 'text-rose-400 bg-rose-950/40 border-rose-800',
     statName: '공격 공격력',
-    statBonus: '+10%',
+    statBonus: '+4%',
   },
   magnetLevel: {
     name: '바른 필기구 흡입력',
-    description: '경험치 연필과 아이템을 빨아들이는 범위를 15% 늘립니다.',
+    description: '경험치 연필과 아이템을 빨아들이는 범위를 6% 늘립니다.',
     icon: Magnet,
     color: 'text-yellow-400 bg-yellow-950/40 border-yellow-800',
     statName: '습득 범위',
-    statBonus: '+15%',
+    statBonus: '+6%',
   },
   dashLevel: {
     name: '선도부 우회 기동력',
-    description: '체육복 대시의 쿨다운을 10% 단축합니다.',
+    description: '체육복 대시의 쿨다운을 4% 단축합니다.',
     icon: Milestone,
     color: 'text-purple-400 bg-purple-950/40 border-purple-800',
     statName: '대시 쿨타임',
-    statBonus: '-10%',
+    statBonus: '-4%',
   },
 };
 
-const MAX_LEVEL = 5;
+const MAX_LEVEL = 10;
 
 export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onClose }: UpgradeMenuProps) {
   const getCost = (level: number) => {
-    return (level + 1) * 350; // Cost increases per level
+    return 700 + level * 450 + level * level * 80;
   };
 
   return (
