@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Character, StageId, Difficulty, UpgradeState, InGameItem } from '../types';
 import { LEVEL_UP_CHOICES, STAGE_DURATION_SECONDS } from '../constants';
-import { Pause, Play, ShieldAlert, Maximize, Minimize } from 'lucide-react';
+import { Pause, Play, ShieldAlert, Maximize, Minimize, LogOut } from 'lucide-react';
 import LevelUpModal from './LevelUpModal';
 
 interface GameCanvasProps {
@@ -2607,6 +2607,13 @@ export default function GameCanvas({
               className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black py-3 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-lg shadow-cyan-400/25"
             >
               다시 수업 복귀
+            </button>
+            <button
+              onClick={() => handleGameOver(false)}
+              className="w-full flex items-center justify-center gap-2 bg-rose-950/70 hover:bg-rose-900 border border-rose-700/70 text-rose-200 font-black py-3 rounded-xl transition-all active:scale-95 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              도망가기
             </button>
           </div>
         </div>

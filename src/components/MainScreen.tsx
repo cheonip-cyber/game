@@ -6,6 +6,12 @@ import UpgradeMenu from './UpgradeMenu';
 import { useRankings } from '../hooks/useRankings';
 import { isValidEnglishNickname } from '../services/rankings';
 
+const CHARACTER_CARD_IMAGES: Record<string, string> = {
+  chris: '/assets/game/character-chris.webp',
+  minwoo: '/assets/game/character-abigail.webp',
+  haeun: '/assets/game/character-elena.webp',
+};
+
 interface MainScreenProps {
   onStartGame: (config: {
     character: Character;
@@ -190,7 +196,6 @@ export default function MainScreen({
                 {STAGES.map((stg) => {
                   const isSelected = selectedStage === stg.id;
                   const isUnlocked = isStageUnlocked(stg.id);
-                  const durationMinutes = STAGE_DURATION_SECONDS[stg.id] / 60;
                   return (
                     <button
                       key={stg.id}
@@ -220,9 +225,6 @@ export default function MainScreen({
                       <p className="text-xs text-slate-400 leading-normal">
                         {isUnlocked ? stg.description : stg.id === 'middle' ? '초등학교 상 난이도 완료 시 개방' : '중학교 상 난이도 완료 시 개방'}
                       </p>
-                      <span className="text-[10px] text-cyan-300/80 flex items-center gap-1 mt-1">
-                        <Clock3 className="w-3 h-3" /> 선생님 도착 {durationMinutes}분
-                      </span>
                     </button>
                   );
                 })}
@@ -261,6 +263,13 @@ export default function MainScreen({
                     </button>
                   );
                 })}
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-cyan-800/60 bg-cyan-950/25 px-3 py-2.5 text-xs font-bold text-cyan-100">
+                <Clock3 className="w-4 h-4 text-cyan-400" />
+                <span>
+                  {STAGES.find((stage) => stage.id === selectedStage)?.name} · 선생님 도착까지{' '}
+                  <strong className="text-yellow-300">{STAGE_DURATION_SECONDS[selectedStage] / 60}분</strong>
+                </span>
               </div>
             </div>
           </div>
@@ -338,22 +347,27 @@ export default function MainScreen({
                     )}
 
                     <div>
+                      <div className="relative h-48 -mx-4 -mt-4 mb-3 overflow-hidden rounded-t-2xl border-b border-slate-800/80 bg-[radial-gradient(circle_at_50%_35%,rgba(56,189,248,0.22),rgba(15,23,42,0.92)_72%)]">
+                        <img
+                          src={CHARACTER_CARD_IMAGES[char.id]}
+                          alt={`${char.name} 캐릭터`}
+                          loading="lazy"
+                          draggable={false}
+                          className="absolute inset-0 w-full h-full object-contain object-center p-1 drop-shadow-[0_14px_18px_rgba(0,0,0,0.55)] transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <span
+                          className="absolute left-3 bottom-2 rounded-full border px-2.5 py-1 text-[9px] font-black tracking-widest backdrop-blur-md"
+                          style={{ color: char.imageColor, borderColor: `${char.imageColor}88`, backgroundColor: `${char.imageColor}18` }}
+                        >
+                          3D STUDENT UNIT
+                        </span>
+                      </div>
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{char.title}</span>
                           <h3 className="text-2xl font-black tracking-tight" style={{ color: char.imageColor }}>
                             {char.name}
                           </h3>
-                        </div>
-                        <div 
-                          className="w-10 h-10 rounded-xl flex items-center justify-center border text-white font-extrabold text-lg select-none"
-                          style={{ 
-                            backgroundColor: `${char.imageColor}20`,
-                            borderColor: char.imageColor,
-                            color: char.imageColor
-                          }}
-                        >
-                          {char.name[0]}
                         </div>
                       </div>
 
@@ -433,9 +447,6 @@ export default function MainScreen({
                 </ul>
               </div>
 
-              <div className="border-t border-slate-800/80 pt-4 mt-4 text-[11px] text-slate-500">
-                선생님 도착 예정 시간: <strong className="text-rose-400">10분</strong>
-              </div>
             </div>
           </div>
         </section>
