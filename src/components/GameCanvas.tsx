@@ -50,6 +50,8 @@ const FIELD_BALANCE = {
 
 const SCORE_FIELD_WEIGHT: Record<StageId, number> = { elementary: 1, middle: 1.8, high: 3 };
 const SCORE_DIFFICULTY_WEIGHT: Record<Difficulty, number> = { '하': 1, '중': 1.4, '상': 2, '해골': 3 };
+const SCHOOL_ENEMY_PRESSURE: Record<StageId, number> = { elementary: 1, middle: 1.35, high: 1.85 };
+const DIFFICULTY_ENEMY_PRESSURE: Record<Difficulty, number> = { '하': 1, '중': 1.15, '상': 1.6, '해골': 2.2 };
 const MAX_SKILL_LEVEL = 5;
 const MAX_ENEMIES = 360;
 const MAX_BULLETS = 420;
@@ -84,7 +86,7 @@ interface Enemy {
   radius: number;
   damage: number;
   color: string;
-  type: 'swarm' | 'blaster' | 'hazard' | 'reinforced' | 'boss';
+  type: 'swarm' | 'blaster' | 'hazard' | 'reinforced' | 'stalker' | 'overlord' | 'boss';
   typeName: string;
   isBoss: boolean;
   scoreValue: number;
@@ -138,6 +140,84 @@ interface StrikeArea {
 
 type PlayerFacing = 'down' | 'left' | 'right' | 'up';
 
+function createFloorTile(image: HTMLImageElement, stageId: StageId, difficulty: Difficulty): HTMLCanvasElement {
+  const size = 512;
+  const tile = document.createElement('canvas');
+  tile.width = size;
+  tile.height = size;
+  const ctx = tile.getContext('2d');
+  if (!ctx) return tile;
+
+  ctx.drawImage(image, 0, 0, size, size);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = stageId === 'elementary' ? '#d8e2bd' : stageId === 'middle' ? '#6382a0' : '#504855';
+  ctx.fillRect(0, 0, size, size);
+  ctx.globalCompositeOperation = 'source-over';
+
+  const tint = difficulty === '해골'
+    ? 'rgba(75, 8, 25, 0.52)'
+    : difficulty === '상'
+      ? 'rgba(119, 45, 8, 0.38)'
+      : difficulty === '중'
+        ? 'rgba(13, 32, 58, 0.28)'
+        : 'rgba(255, 248, 218, 0.08)';
+  ctx.fillStyle = tint;
+  ctx.fillRect(0, 0, size, size);
+
+  if (difficulty === '하') {
+    const light = ctx.createLinearGradient(0, 0, size, size);
+    light.addColorStop(0, 'rgba(255,255,230,0.22)');
+    light.addColorStop(0.38, 'rgba(255,255,255,0.04)');
+    light.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, size, size);
+  } else if (difficulty === '중') {
+    ctx.fillStyle = 'rgba(226,232,240,0.42)';
+    ctx.save();
+    ctx.translate(92, 346);
+    ctx.rotate(-0.18);
+    ctx.fillRect(-18, -10, 36, 20);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(185,28,28,0.34)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(330, 170); ctx.lineTo(352, 157); ctx.lineTo(374, 174); ctx.lineTo(398, 160);
+    ctx.stroke();
+  } else if (difficulty === '상') {
+    ctx.strokeStyle = 'rgba(251,146,60,0.45)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(54, 116); ctx.lineTo(118, 168); ctx.lineTo(92, 232); ctx.lineTo(154, 294);
+    ctx.moveTo(408, 56); ctx.lineTo(374, 118); ctx.lineTo(428, 190);
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(330, 420);
+    ctx.rotate(-0.28);
+    for (let x = -90; x < 90; x += 28) {
+      ctx.fillStyle = x % 56 === 0 ? 'rgba(250,204,21,0.44)' : 'rgba(15,23,42,0.42)';
+      ctx.fillRect(x, -8, 28, 16);
+    }
+    ctx.restore();
+  } else {
+    ctx.shadowColor = '#c026d3';
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = 'rgba(217,70,239,0.78)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(20, 390); ctx.lineTo(92, 342); ctx.lineTo(148, 372); ctx.lineTo(212, 318);
+    ctx.moveTo(314, 72); ctx.lineTo(356, 132); ctx.lineTo(334, 206); ctx.lineTo(406, 258); ctx.lineTo(490, 234);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    const glow = ctx.createRadialGradient(438, 438, 0, 438, 438, 86);
+    glow.addColorStop(0, 'rgba(239,68,68,0.35)');
+    glow.addColorStop(1, 'rgba(127,29,29,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(350, 350, 176, 176);
+  }
+
+  return tile;
+}
+
 export default function GameCanvas({
   character,
   stageId,
@@ -150,6 +230,9 @@ export default function GameCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const heroImageRef = useRef<HTMLImageElement | null>(null);
   const expPrismImageRef = useRef<HTMLImageElement | null>(null);
+  const floorImageRef = useRef<HTMLImageElement | null>(null);
+  const floorTileRef = useRef<HTMLCanvasElement | null>(null);
+  const floorPatternRef = useRef<CanvasPattern | null>(null);
   const playerFacingRef = useRef<PlayerFacing>('down');
 
   const timeMultiplier = 1;
@@ -200,6 +283,14 @@ export default function GameCanvas({
     expPrismImage.src = '/assets/game/exp-prism.png';
     expPrismImage.onload = () => {
       expPrismImageRef.current = expPrismImage;
+    };
+
+    const floorImage = new Image();
+    floorImage.src = '/assets/game/school-floor-tile.webp';
+    floorImage.onload = () => {
+      floorImageRef.current = floorImage;
+      floorTileRef.current = null;
+      floorPatternRef.current = null;
     };
   }, []);
 
@@ -537,7 +628,7 @@ export default function GameCanvas({
 
   // Spawn Enemies algorithm
   const spawnEnemy = (
-    type: 'swarm' | 'blaster' | 'hazard' | 'reinforced' | 'boss',
+    type: Enemy['type'],
     clusterAnchor?: { x: number; y: number },
   ) => {
     if (enemiesRef.current.length >= MAX_ENEMIES) return;
@@ -571,8 +662,17 @@ export default function GameCanvas({
 
     const [, , , enemyAttack] = FIELD_BALANCE[stageId][difficulty];
     const elapsedMinutes = stats.time / 60;
-    const hpScale = 1 + 0.18 * elapsedMinutes;
-    const damageScale = (1 + 0.12 * elapsedMinutes) * (1 + 0.02 * stats.level);
+    const lateLevel = Math.max(0, stats.level - 20);
+    const lateTier = Math.floor(lateLevel / 10);
+    const pressure = SCHOOL_ENEMY_PRESSURE[stageId] * DIFFICULTY_ENEMY_PRESSURE[difficulty];
+    const hpChallenge = pressure
+      * Math.sqrt(SCORE_FIELD_WEIGHT[stageId] * SCORE_DIFFICULTY_WEIGHT[difficulty])
+      * (stageId === 'high' ? 1.15 : 1);
+    const hpScale = (1 + 0.18 * elapsedMinutes) * hpChallenge * (1 + lateLevel * 0.055 + lateTier * 0.18);
+    const damageScale = (1 + 0.12 * elapsedMinutes)
+      * (1 + 0.02 * Math.min(stats.level, 20))
+      * pressure
+      * (1 + lateLevel * 0.06 + lateTier * 0.3);
     const scaleHp = (val: number) => Math.round(val * hpScale);
     const scaleDmg = (ratio: number) => Math.max(1, Math.round(enemyAttack * ratio * damageScale * 0.6));
     const schoolSize = stageId === 'elementary' ? 0.88 : stageId === 'middle' ? 1 : 1.18;
@@ -614,6 +714,26 @@ export default function GameCanvas({
         color = '#f97316'; // orange-500
         scoreValue = 400;
         break;
+      case 'stalker':
+        typeName = '추격형 생활지도부 스토커';
+        hp = scaleHp(185);
+        speed = 2.65;
+        radius = 17;
+        damage = scaleDmg(1.22);
+        color = '#e11d48';
+        scoreValue = 650;
+        attackCooldown = 720;
+        break;
+      case 'overlord':
+        typeName = '입시압박 오버로드';
+        hp = scaleHp(420);
+        speed = 1.35;
+        radius = 27;
+        damage = scaleDmg(1.55);
+        color = '#7c3aed';
+        scoreValue = 1100;
+        attackCooldown = 650;
+        break;
       case 'boss':
         typeName = '👹 폭주 학업스트레스 보스';
         hp = scaleHp(1200);
@@ -642,6 +762,10 @@ export default function GameCanvas({
       shape = Math.random() < 0.5 ? 'square' : 'cross';
     } else if (type === 'reinforced') {
       shape = Math.random() < 0.5 ? 'star' : 'hexagon';
+    } else if (type === 'stalker') {
+      shape = 'triangle';
+    } else if (type === 'overlord') {
+      shape = 'cross';
     } else if (type === 'boss') {
       shape = 'star';
     }
@@ -662,6 +786,12 @@ export default function GameCanvas({
     } else if (type === 'reinforced') {
       const reinfColors = ['#f97316', '#fb923c', '#ea580c', '#f59e0b', '#f43f5e'];
       finalColor = reinfColors[Math.floor(variantRand * reinfColors.length)];
+    } else if (type === 'stalker') {
+      const stalkerColors = ['#e11d48', '#be123c', '#fb7185'];
+      finalColor = stalkerColors[Math.floor(variantRand * stalkerColors.length)];
+    } else if (type === 'overlord') {
+      const overlordColors = ['#7c3aed', '#6d28d9', '#9333ea'];
+      finalColor = overlordColors[Math.floor(variantRand * overlordColors.length)];
     } else if (type === 'boss') {
       const bossColors = ['#ef4444', '#dc2626', '#b91c1c', '#f43f5e'];
       finalColor = bossColors[Math.floor(variantRand * bossColors.length)];
@@ -790,12 +920,14 @@ export default function GameCanvas({
 
           const levelTier = Math.floor((stats.level - 1) / 3);
           const timeTier = Math.floor(stats.time / 90);
-          const spawnFrequency = FIELD_BALANCE[stageId][difficulty][4];
-          const spawnInterval = Math.max(0.18, (1.25 - levelTier * 0.08 - timeTier * 0.035) / spawnFrequency);
+          const enemyPressure = SCHOOL_ENEMY_PRESSURE[stageId] * DIFFICULTY_ENEMY_PRESSURE[difficulty];
+          const spawnFrequency = FIELD_BALANCE[stageId][difficulty][4] * Math.sqrt(enemyPressure);
+          const lateSpawnTier = Math.floor(Math.max(0, stats.level - 20) / 5);
+          const spawnInterval = Math.max(0.16, (1.25 - levelTier * 0.08 - timeTier * 0.035 - lateSpawnTier * 0.012) / spawnFrequency);
           if (enemySpawnTimer >= spawnInterval) {
             enemySpawnTimer = 0;
 
-            const spawnCount = Math.min(24, 2 + levelTier + Math.floor(timeTier / 2));
+            const spawnCount = Math.min(26, Math.ceil((2 + levelTier + Math.floor(timeTier / 2)) * Math.sqrt(enemyPressure)));
 
             for (let i = 0; i < spawnCount; i++) {
               const r = Math.random();
@@ -810,11 +942,21 @@ export default function GameCanvas({
                 else if (r < 0.58) spawnEnemy('blaster');
                 else if (r < 0.84) spawnEnemy('hazard');
                 else spawnEnemy('reinforced');
-              } else {
+              } else if (stats.level < 20) {
                 if (r < 0.38) spawnEnemy('reinforced');
                 else if (r < 0.68) spawnEnemy('hazard');
                 else if (r < 0.88) spawnEnemy('blaster');
                 else spawnEnemy('swarm');
+              } else if (stats.level < 35) {
+                if (r < 0.28) spawnEnemy('stalker');
+                else if (r < 0.62) spawnEnemy('reinforced');
+                else if (r < 0.84) spawnEnemy('hazard');
+                else spawnEnemy('blaster');
+              } else {
+                if (r < 0.22) spawnEnemy('overlord');
+                else if (r < 0.5) spawnEnemy('stalker');
+                else if (r < 0.78) spawnEnemy('reinforced');
+                else spawnEnemy('hazard');
               }
             }
           }
@@ -1350,6 +1492,14 @@ export default function GameCanvas({
       gemValue = 30;
       gemRadius = 7;
       gemColor = '#f97316'; // Vivid Orange
+    } else if (enemy.type === 'overlord') {
+      gemValue = 45;
+      gemRadius = 8;
+      gemColor = '#c084fc';
+    } else if (enemy.type === 'stalker') {
+      gemValue = 28;
+      gemRadius = 7;
+      gemColor = '#fb7185';
     } else if (enemy.type === 'hazard') {
       gemValue = 20;
       gemRadius = 6;
@@ -1418,7 +1568,8 @@ export default function GameCanvas({
     if (stats.isDashing || stats.hp <= 0) return;
 
     const baseDefense = FIELD_BALANCE[stageId][difficulty][1];
-    const levelDefense = baseDefense + 0.5 * Math.max(0, stats.level - 1);
+    // Player defense growth stops at level 20 so late-game enemy pressure remains meaningful.
+    const levelDefense = baseDefense + 0.5 * Math.min(19, Math.max(0, stats.level - 1));
     const defenseReduction = levelDefense / (levelDefense + 100);
     const badgeReduction = Math.min(0.1, (weaponLevelsRef.current.clean_badge || 0) * 0.02);
     const finalAmount = Math.max(1, Math.round(amount * (1 - defenseReduction) * (1 - badgeReduction)));
@@ -1501,8 +1652,8 @@ export default function GameCanvas({
       }
 
       // Blaster shooting mechanism (ranged enemies)
-      if (e.type === 'blaster') {
-        const shotCooldown = 2500;
+      if (e.type === 'blaster' || e.type === 'overlord') {
+        const shotCooldown = e.type === 'overlord' ? 1400 : 2500;
         const lastShot = e.lastShotTime || 0;
         if (now - lastShot > shotCooldown && dist < 220) {
           e.lastShotTime = now;
@@ -1748,53 +1899,25 @@ export default function GameCanvas({
     const cameraY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, stats.playerY - canvas.height / 2));
     const isVisible = (x: number, y: number, margin = 80) => x >= cameraX - margin && x <= cameraX + canvas.width + margin && y >= cameraY - margin && y <= cameraY + canvas.height + margin;
 
-    // Stage-specific clean school floors with a difficulty tint.
-    const floorPalette = stageId === 'elementary'
-      ? { top: '#164e63', bottom: '#082f49', tile: '#67e8f915', line: '#a5f3fc22' }
-      : stageId === 'middle'
-        ? { top: '#1e3a5f', bottom: '#111827', tile: '#93c5fd12', line: '#bfdbfe20' }
-        : { top: '#3b1d52', bottom: '#170f2b', tile: '#e9d5ff12', line: '#f5d0fe20' };
-    const difficultyTint = difficulty === '해골'
-      ? 'rgba(127, 29, 29, 0.30)'
-      : difficulty === '상'
-        ? 'rgba(124, 45, 18, 0.18)'
-        : difficulty === '중'
-          ? 'rgba(113, 63, 18, 0.12)'
-          : 'rgba(15, 23, 42, 0)';
-    const floorGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    floorGradient.addColorStop(0, floorPalette.top);
-    floorGradient.addColorStop(1, floorPalette.bottom);
-    ctx.fillStyle = floorGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = difficultyTint;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.strokeStyle = floorPalette.line;
-    ctx.lineWidth = 1;
-    const gridSize = 120;
-    
-    const startX = Math.floor(cameraX / gridSize) * gridSize;
-    const startY = Math.floor(cameraY / gridSize) * gridSize;
-    const endX = startX + canvas.width + gridSize;
-    const endY = startY + canvas.height + gridSize;
-
-    for (let x = startX; x < endX; x += gridSize) {
-      for (let y = startY; y < endY; y += gridSize) {
-        if (((x / gridSize) + (y / gridSize)) % 2 === 0) {
-          ctx.fillStyle = floorPalette.tile;
-          ctx.fillRect(x - cameraX, y - cameraY, gridSize, gridSize);
-        }
-      }
-      ctx.beginPath();
-      ctx.moveTo(x - cameraX, 0);
-      ctx.lineTo(x - cameraX, canvas.height);
-      ctx.stroke();
+    // Build the school/difficulty floor once, then render it with one repeated pattern fill per frame.
+    // This replaces the old nested per-tile draw loops and keeps the extra visual detail mobile-safe.
+    if (!floorTileRef.current && floorImageRef.current) {
+      floorTileRef.current = createFloorTile(floorImageRef.current, stageId, difficulty);
     }
-    for (let y = startY; y < endY; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y - cameraY);
-      ctx.lineTo(canvas.width, y - cameraY);
-      ctx.stroke();
+    const floorTile = floorTileRef.current;
+    if (floorTile) {
+      const pattern = floorPatternRef.current ?? ctx.createPattern(floorTile, 'repeat');
+      if (pattern) {
+        floorPatternRef.current = pattern;
+        ctx.save();
+        ctx.translate(-(cameraX % floorTile.width), -(cameraY % floorTile.height));
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, canvas.width + floorTile.width, canvas.height + floorTile.height);
+        ctx.restore();
+      }
+    } else {
+      ctx.fillStyle = stageId === 'elementary' ? '#536b66' : stageId === 'middle' ? '#27384c' : '#27212e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // Draw campus boundary walls (visualizing world boundaries)
@@ -1933,7 +2056,7 @@ export default function GameCanvas({
       }
 
       // Aura on Reinforced and Boss
-      if (e.isBoss || e.type === 'reinforced') {
+      if (e.isBoss || e.type === 'reinforced' || e.type === 'stalker' || e.type === 'overlord') {
         ctx.beginPath();
         ctx.arc(e.x - cameraX, e.y - cameraY, e.radius + 6, 0, Math.PI * 2);
         ctx.strokeStyle = `${e.color}1c`;
