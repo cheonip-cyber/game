@@ -1,9 +1,9 @@
 export interface UpgradeState {
-  maxHpLevel: number; // Max HP +5% per level
-  speedLevel: number; // Speed +2% per level
-  damageLevel: number; // Damage +4% per level
-  magnetLevel: number; // Magnet Range +6% per level
-  dashLevel: number; // Dash cooldown -4% per level
+  maxHpLevel: number; // Max HP +5% per level; level 10 step gives +10%
+  speedLevel: number; // Speed +2% per level; level 10 step gives +4%
+  damageLevel: number; // Damage +4% per level; level 10 step gives +8%
+  magnetLevel: number; // Magnet Range +6% per level; level 10 step gives +12%
+  dashLevel: number; // Dash cooldown -4% per level; level 10 step gives -8%
 }
 
 export interface Character {
