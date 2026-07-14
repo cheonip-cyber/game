@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { GameScore } from '../types';
+import { Difficulty, GameScore, StageId } from '../types';
 import { Trophy, RefreshCw, Home, Share2, BarChart3, Save } from 'lucide-react';
 import { useRankings } from '../hooks/useRankings';
 import { isValidEnglishNickname, saveGlobalRanking } from '../services/rankings';
@@ -13,8 +13,8 @@ interface GameOverScreenProps {
   score: number;
   damageBreakdown: Record<string, number>;
   nickname: string;
-  difficulty: string;
-  stageId: string;
+  difficulty: Difficulty;
+  stageId: StageId;
   onRestart: () => void;
   onGoHome: () => void;
 }
@@ -36,7 +36,7 @@ export default function GameOverScreen({
   const [registered, setRegistered] = useState(false);
   const registeredRef = useRef(false);
   const { rankings: globalRankings, isLoading: rankingsLoading, error: rankingsError } = useRankings();
-  const earnedPoints = calculateEarnedPoints(score);
+  const earnedPoints = calculateEarnedPoints(score, stageId, difficulty);
 
   const totalDamage = Object.values(damageBreakdown).reduce((sum, d) => sum + d, 0);
 

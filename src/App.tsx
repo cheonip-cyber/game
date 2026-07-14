@@ -32,6 +32,7 @@ export default function App() {
   const [points, setPoints] = useState<number>(0);
   const [totalScore, setTotalScore] = useState<number>(0);
   const [unlockedCharacterIds, setUnlockedCharacterIds] = useState<string[]>(DEFAULT_UNLOCKED_CHARACTERS);
+  const [completedMapIds, setCompletedMapIds] = useState<string[]>([]);
   const [upgrades, setUpgrades] = useState<UpgradeState>({
     maxHpLevel: 0,
     speedLevel: 0,
@@ -70,6 +71,16 @@ export default function App() {
         setUnlockedCharacterIds(Array.isArray(parsed) ? [...new Set([...DEFAULT_UNLOCKED_CHARACTERS, ...parsed])] : DEFAULT_UNLOCKED_CHARACTERS);
       } catch {
         setUnlockedCharacterIds(DEFAULT_UNLOCKED_CHARACTERS);
+      }
+    }
+
+    const storedCompletedMaps = localStorage.getItem('school_attack_completed_maps');
+    if (storedCompletedMaps) {
+      try {
+        const parsed = JSON.parse(storedCompletedMaps) as string[];
+        setCompletedMapIds(Array.isArray(parsed) ? [...new Set(parsed)] : []);
+      } catch {
+        setCompletedMapIds([]);
       }
     }
 
@@ -159,6 +170,7 @@ export default function App() {
           points={points}
           upgrades={upgrades}
           unlockedCharacterIds={unlockedCharacterIds}
+          completedMapIds={completedMapIds}
           onUnlockCharacter={handleUnlockCharacter}
           onUpgrade={handleUpgrade}
           onResetUpgrades={handleResetUpgrades}
@@ -191,7 +203,7 @@ export default function App() {
               if (gameRewardGrantedRef.current) return;
               gameRewardGrantedRef.current = true;
 
-              const earnedPoints = calculateEarnedPoints(result.score);
+              const earnedPoints = calculateEarnedPoints(result.score, activeConfig.stageId, activeConfig.difficulty);
               const currentPoints = Number.parseInt(localStorage.getItem('school_attack_points') || '0', 10) || 0;
               const currentTotalScore = Number.parseInt(localStorage.getItem('school_attack_total_score') || '0', 10) || 0;
               const nextPoints = currentPoints + earnedPoints;
@@ -201,6 +213,16 @@ export default function App() {
               localStorage.setItem('school_attack_total_score', nextTotalScore.toString());
               setPoints(nextPoints);
               setTotalScore(nextTotalScore);
+
+              if (result.victory) {
+                const completedMapId = `${activeConfig.stageId}:${activeConfig.difficulty}`;
+                setCompletedMapIds((current) => {
+                  if (current.includes(completedMapId)) return current;
+                  const next = [...current, completedMapId];
+                  localStorage.setItem('school_attack_completed_maps', JSON.stringify(next));
+                  return next;
+                });
+              }
               setGameResult(result);
               setScreen('gameover');
             }}

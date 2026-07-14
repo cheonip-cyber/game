@@ -76,6 +76,12 @@ export const DIFFICULTIES: { id: Difficulty; label: string; multiplier: number; 
   { id: '해골', label: '해골 (x8)', multiplier: 8.0, color: 'text-red-500 bg-red-950/40 border-red-900 animate-pulse' },
 ];
 
+export const STAGE_DURATION_SECONDS: Record<Stage['id'], number> = {
+  elementary: 5 * 60,
+  middle: 10 * 60,
+  high: 20 * 60,
+};
+
 export const LEVEL_UP_CHOICES: InGameItem[] = [
   {
     id: 'pencil',

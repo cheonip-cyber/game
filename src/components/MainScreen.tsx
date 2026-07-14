@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { CHARACTERS, STAGES, DIFFICULTIES, CHALLENGES } from '../constants';
+import { CHARACTERS, STAGES, DIFFICULTIES, CHALLENGES, STAGE_DURATION_SECONDS } from '../constants';
 import { Character, StageId, Difficulty, UpgradeState } from '../types';
-import { Swords, Trophy, Sparkles, Lock, Gamepad2, Settings2, UserCheck, HelpCircle, Maximize, Minimize } from 'lucide-react';
+import { Swords, Trophy, Sparkles, Lock, Gamepad2, Settings2, UserCheck, HelpCircle, Maximize, Minimize, CheckCircle2, Clock3 } from 'lucide-react';
 import UpgradeMenu from './UpgradeMenu';
 import { useRankings } from '../hooks/useRankings';
 import { isValidEnglishNickname } from '../services/rankings';
@@ -17,6 +17,7 @@ interface MainScreenProps {
   points: number;
   upgrades: UpgradeState;
   unlockedCharacterIds: string[];
+  completedMapIds: string[];
   onUnlockCharacter: (character: Character) => boolean;
   onUpgrade: (key: keyof UpgradeState, cost: number) => void;
   onResetUpgrades: () => void;
@@ -28,6 +29,7 @@ export default function MainScreen({
   points,
   upgrades,
   unlockedCharacterIds,
+  completedMapIds,
   onUnlockCharacter,
   onUpgrade,
   onResetUpgrades,
@@ -44,6 +46,19 @@ export default function MainScreen({
   const { rankings: globalRankings, isLoading: rankingsLoading, error: rankingsError } = useRankings();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [unlockingCharacterId, setUnlockingCharacterId] = useState<string | null>(null);
+
+  const isMapCompleted = (stageId: StageId, difficulty: Difficulty) => completedMapIds.includes(`${stageId}:${difficulty}`);
+  const isStageUnlocked = (stageId: StageId) => {
+    if (stageId === 'elementary') return true;
+    if (stageId === 'middle') return isMapCompleted('elementary', '상');
+    return isMapCompleted('middle', '상');
+  };
+  const isDifficultyUnlocked = (stageId: StageId, difficulty: Difficulty) => {
+    if (!isStageUnlocked(stageId)) return false;
+    if (difficulty === '하' || difficulty === '중') return true;
+    if (difficulty === '상') return isMapCompleted(stageId, '하') || isMapCompleted(stageId, '중');
+    return isMapCompleted(stageId, '상');
+  };
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -83,6 +98,11 @@ export default function MainScreen({
 
     if (!unlockedCharacterIds.includes(selectedChar.id)) {
       alert('잠금 해제 후 출격할 수 있는 캐릭터입니다.');
+      return;
+    }
+
+    if (!isStageUnlocked(selectedStage) || !isDifficultyUnlocked(selectedStage, selectedDifficulty)) {
+      alert('이전 단계 완료 조건을 달성해야 출격할 수 있습니다.');
       return;
     }
 
@@ -169,11 +189,19 @@ export default function MainScreen({
               <div className="space-y-2.5">
                 {STAGES.map((stg) => {
                   const isSelected = selectedStage === stg.id;
+                  const isUnlocked = isStageUnlocked(stg.id);
+                  const durationMinutes = STAGE_DURATION_SECONDS[stg.id] / 60;
                   return (
                     <button
                       key={stg.id}
-                      onClick={() => setSelectedStage(stg.id)}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1 cursor-pointer ${
+                      disabled={!isUnlocked}
+                      onClick={() => {
+                        setSelectedStage(stg.id);
+                        setSelectedDifficulty('하');
+                      }}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all flex flex-col gap-1 ${
+                        !isUnlocked ? 'border-slate-900 bg-slate-950/70 opacity-55 cursor-not-allowed' : 'cursor-pointer'
+                      } ${
                         isSelected
                           ? 'border-cyan-400 bg-cyan-950/15 ring-2 ring-cyan-400/20'
                           : 'border-slate-800 bg-slate-950/40 hover:bg-slate-900/40 hover:border-slate-700'
@@ -181,7 +209,7 @@ export default function MainScreen({
                     >
                       <div className="flex justify-between items-center">
                         <span className={`font-black text-sm ${isSelected ? 'text-cyan-400' : 'text-slate-200'}`}>
-                          {stg.name}
+                          {isUnlocked ? stg.name : `🔒 ${stg.name}`}
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                           isSelected ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-500'
@@ -189,7 +217,12 @@ export default function MainScreen({
                           획득 점수 x{stg.multiplier.toFixed(1)}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 leading-normal">{stg.description}</p>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isUnlocked ? stg.description : stg.id === 'middle' ? '초등학교 상 난이도 완료 시 개방' : '중학교 상 난이도 완료 시 개방'}
+                      </p>
+                      <span className="text-[10px] text-cyan-300/80 flex items-center gap-1 mt-1">
+                        <Clock3 className="w-3 h-3" /> 선생님 도착 {durationMinutes}분
+                      </span>
                     </button>
                   );
                 })}
@@ -201,18 +234,30 @@ export default function MainScreen({
               <div className="grid grid-cols-2 gap-2">
                 {DIFFICULTIES.map((diff) => {
                   const isSelected = selectedDifficulty === diff.id;
+                  const isUnlocked = isDifficultyUnlocked(selectedStage, diff.id);
+                  const isCompleted = isMapCompleted(selectedStage, diff.id);
                   return (
                     <button
                       key={diff.id}
+                      disabled={!isUnlocked}
                       onClick={() => setSelectedDifficulty(diff.id)}
-                      className={`p-3 rounded-xl border text-center font-bold text-xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      className={`relative p-3 rounded-xl border text-center font-bold text-xs transition-all flex flex-col items-center justify-center gap-1 ${
+                        !isUnlocked ? 'opacity-45 cursor-not-allowed border-slate-900 bg-slate-950/70' : 'cursor-pointer'
+                      } ${
                         isSelected
                           ? 'border-indigo-400 bg-indigo-950/20 ring-2 ring-indigo-400/25 text-indigo-200'
                           : 'border-slate-800 bg-slate-950/40 hover:bg-slate-900/40 hover:border-slate-700 text-slate-400'
                       }`}
                     >
-                      <span className="text-sm font-black">{diff.label}</span>
-                      <span className="text-[10px] text-slate-500">배율 x{diff.multiplier}</span>
+                      {isCompleted && <CheckCircle2 className="absolute top-1.5 right-1.5 w-3.5 h-3.5 text-emerald-400" />}
+                      <span className="text-sm font-black">{isUnlocked ? diff.label : `🔒 ${diff.label}`}</span>
+                      <span className="text-[10px] text-slate-500">
+                        {isUnlocked
+                          ? `배율 x${diff.multiplier}`
+                          : diff.id === '상'
+                            ? '하 또는 중 완료 필요'
+                            : '상 완료 필요'}
+                      </span>
                     </button>
                   );
                 })}
