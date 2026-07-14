@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Character, StageId, Difficulty, UpgradeState, InGameItem } from '../types';
-import { LEVEL_UP_CHOICES } from '../constants';
+import { LEVEL_UP_CHOICES, STAGE_DURATION_SECONDS } from '../constants';
 import { Pause, Play, ShieldAlert, Maximize, Minimize } from 'lucide-react';
 import LevelUpModal from './LevelUpModal';
 
@@ -332,7 +332,7 @@ export default function GameCanvas({
     dashEndTime: 0,
     dashVx: 0,
     dashVy: 0,
-    victoryTargetTime: 600, // 10 minutes (600s) survival
+    victoryTargetTime: STAGE_DURATION_SECONDS[stageId],
   });
 
   // Store weapon levels in a ref for bullet spawning
@@ -839,7 +839,7 @@ export default function GameCanvas({
           // 1. Survival Time Increaser
           stats.time += delta;
 
-          // Trigger victory condition (10 min = 600s)
+          // Each school has its own teacher arrival time.
           if (stats.time >= stats.victoryTargetTime) {
             handleGameOver(true);
             return;
