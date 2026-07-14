@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import IntroScreen from './components/IntroScreen';
 import MainScreen from './components/MainScreen';
 import GameCanvas from './components/GameCanvas';
 import GameOverScreen from './components/GameOverScreen';
 import { Character, StageId, Difficulty, UpgradeState } from './types';
-import { getUpgradeCost } from './utils/progression';
+import { calculateEarnedPoints, getUpgradeCost } from './utils/progression';
 
 const DATA_RESET_VERSION = '2026-07-10-balance-reset-v3';
 const DEFAULT_UNLOCKED_CHARACTERS = ['chris'];
@@ -13,6 +13,7 @@ type ScreenState = 'intro' | 'main' | 'game' | 'gameover';
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenState>('intro');
+  const gameRewardGrantedRef = useRef(false);
   
   // Game Play configurations
   const [activeConfig, setActiveConfig] = useState<{
@@ -142,14 +143,6 @@ export default function App() {
     localStorage.setItem('school_attack_upgrades', JSON.stringify(resetUpgrades));
   };
 
-  // Refresh points/scores in real-time when ranking registered
-  const handleRankingRegistered = () => {
-    const pts = parseInt(localStorage.getItem('school_attack_points') || '0', 10);
-    const tot = parseInt(localStorage.getItem('school_attack_total_score') || '0', 10);
-    setPoints(pts);
-    setTotalScore(tot);
-  };
-
   // Screen routing
   switch (screen) {
     case 'intro':
@@ -170,6 +163,7 @@ export default function App() {
           onUpgrade={handleUpgrade}
           onResetUpgrades={handleResetUpgrades}
           onStartGame={(config) => {
+            gameRewardGrantedRef.current = false;
             setActiveConfig({
               character: config.character,
               stageId: config.stageId,
@@ -194,6 +188,19 @@ export default function App() {
               // Can hook pause telemetry if needed
             }}
             onGameEnd={(result) => {
+              if (gameRewardGrantedRef.current) return;
+              gameRewardGrantedRef.current = true;
+
+              const earnedPoints = calculateEarnedPoints(result.score);
+              const currentPoints = Number.parseInt(localStorage.getItem('school_attack_points') || '0', 10) || 0;
+              const currentTotalScore = Number.parseInt(localStorage.getItem('school_attack_total_score') || '0', 10) || 0;
+              const nextPoints = currentPoints + earnedPoints;
+              const nextTotalScore = currentTotalScore + result.score;
+
+              localStorage.setItem('school_attack_points', nextPoints.toString());
+              localStorage.setItem('school_attack_total_score', nextTotalScore.toString());
+              setPoints(nextPoints);
+              setTotalScore(nextTotalScore);
               setGameResult(result);
               setScreen('gameover');
             }}
@@ -214,8 +221,10 @@ export default function App() {
           nickname={activeConfig.nickname}
           difficulty={activeConfig.difficulty}
           stageId={activeConfig.stageId}
-          onRankingRegistered={handleRankingRegistered}
-          onRestart={() => setScreen('game')}
+          onRestart={() => {
+            gameRewardGrantedRef.current = false;
+            setScreen('game');
+          }}
           onGoHome={() => setScreen('main')}
         />
       );

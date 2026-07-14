@@ -17,7 +17,6 @@ interface GameOverScreenProps {
   stageId: string;
   onRestart: () => void;
   onGoHome: () => void;
-  onRankingRegistered: () => void;
 }
 
 export default function GameOverScreen({
@@ -32,7 +31,6 @@ export default function GameOverScreen({
   stageId,
   onRestart,
   onGoHome,
-  onRankingRegistered,
 }: GameOverScreenProps) {
   const [rankingName, setRankingName] = useState(nickname);
   const [registered, setRegistered] = useState(false);
@@ -80,15 +78,7 @@ export default function GameOverScreen({
     try {
       await saveGlobalRanking(newScore);
       localStorage.setItem('school_attack_nickname', trimmedName);
-
-      const currentPoints = Number.parseInt(localStorage.getItem('school_attack_points') || '0', 10) || 0;
-      const totalCumulative = Number.parseInt(localStorage.getItem('school_attack_total_score') || '0', 10) || 0;
-
-      localStorage.setItem('school_attack_points', (currentPoints + earnedPoints).toString());
-      localStorage.setItem('school_attack_total_score', (totalCumulative + score).toString());
-
       setRegistered(true);
-      onRankingRegistered();
     } catch (error) {
       registeredRef.current = false;
       console.error('Ranking save failed', error);
@@ -215,11 +205,11 @@ export default function GameOverScreen({
                     저장하기
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400">저장 시 획득 포인트가 누적 점수와 강화 포인트에 반영됩니다.</p>
+                <p className="text-[11px] text-slate-400">포인트는 이미 자동 지급되었습니다. 저장은 글로벌 랭킹 등록에만 사용됩니다.</p>
               </div>
             ) : (
               <div className="text-center py-3 px-4 bg-emerald-950/30 border border-emerald-800/50 rounded-xl">
-                <span className="text-sm font-bold text-emerald-400 block">✨ 랭킹 저장 완료! +{earnedPoints.toLocaleString()} PTS 획득</span>
+                <span className="text-sm font-bold text-emerald-400 block">✨ 글로벌 랭킹 저장 완료!</span>
               </div>
             )}
           </div>

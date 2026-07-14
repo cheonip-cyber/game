@@ -1152,10 +1152,11 @@ export default function GameCanvas({
         const count = lvls.chalk >= 5 ? 7 : lvls.chalk >= 4 ? 4 : lvls.chalk >= 2 ? 2 : 1;
         const damage = Math.round(skillAttack * levelAttackScale * (1 + (lvls.chalk - 1) * 0.15) * damageMultiplier * (lvls.chalk >= 5 ? 1.6 : 1));
 
+        const visibleTargets = enemiesRef.current.filter((enemy) => isWithinPlayerViewport(enemy.x, enemy.y, enemy.radius));
         for (let i = 0; i < count; i++) {
-          if (enemiesRef.current.length > 0) {
-            // Pick random target
-            const randEnemy = enemiesRef.current[Math.floor(Math.random() * enemiesRef.current.length)];
+          if (visibleTargets.length > 0) {
+            // Pick a target that is currently visible on the smartphone screen.
+            const randEnemy = visibleTargets[Math.floor(Math.random() * visibleTargets.length)];
             const angle = Math.atan2(randEnemy.y - stats.playerY, randEnemy.x - stats.playerX);
             
             bulletsRef.current.push({
@@ -1188,12 +1189,13 @@ export default function GameCanvas({
         let targetY = stats.playerY + (Math.random() - 0.5) * 300;
 
         // Attempt to find boss or close enemy clump
-        const boss = enemiesRef.current.find(e => e.isBoss);
+        const visibleTargets = enemiesRef.current.filter((enemy) => isWithinPlayerViewport(enemy.x, enemy.y, enemy.radius));
+        const boss = visibleTargets.find(e => e.isBoss);
         if (boss) {
           targetX = boss.x;
           targetY = boss.y;
-        } else if (enemiesRef.current.length > 0) {
-          const rand = enemiesRef.current[Math.floor(Math.random() * enemiesRef.current.length)];
+        } else if (visibleTargets.length > 0) {
+          const rand = visibleTargets[Math.floor(Math.random() * visibleTargets.length)];
           targetX = rand.x;
           targetY = rand.y;
         }
@@ -1201,9 +1203,12 @@ export default function GameCanvas({
         // Add strike target Area
         const strikeCount = lvls.mother >= 5 ? 2 : 1;
         for (let strikeIndex = 0; strikeIndex < strikeCount; strikeIndex++) {
+          const offsetX = strikeIndex === 0 ? 0 : (Math.random() - 0.5) * 260;
+          const offsetY = strikeIndex === 0 ? 0 : (Math.random() - 0.5) * 260;
+          const viewport = getPlayerViewportBounds();
           strikesRef.current.push({
-            x: targetX + (strikeIndex === 0 ? 0 : (Math.random() - 0.5) * 260),
-            y: targetY + (strikeIndex === 0 ? 0 : (Math.random() - 0.5) * 260),
+            x: Math.max(viewport.left, Math.min(viewport.right, targetX + offsetX)),
+            y: Math.max(viewport.top, Math.min(viewport.bottom, targetY + offsetY)),
             radius: 80 + lvls.mother * 15,
             timer: 0.8,
             maxTimer: 0.8,
@@ -1215,10 +1220,27 @@ export default function GameCanvas({
     }
   };
 
+  const getPlayerViewportBounds = () => {
+    const stats = gameStats.current;
+    const left = Math.max(0, Math.min(WORLD_WIDTH - canvasDimensions.width, stats.playerX - canvasDimensions.width / 2));
+    const top = Math.max(0, Math.min(WORLD_HEIGHT - canvasDimensions.height, stats.playerY - canvasDimensions.height / 2));
+    return { left, top, right: left + canvasDimensions.width, bottom: top + canvasDimensions.height };
+  };
+
+  const isWithinPlayerViewport = (x: number, y: number, margin = 0): boolean => {
+    const viewport = getPlayerViewportBounds();
+    return x >= viewport.left - margin
+      && x <= viewport.right + margin
+      && y >= viewport.top - margin
+      && y <= viewport.bottom + margin;
+  };
+
   const getClosestEnemy = (x: number, y: number): Enemy | null => {
     let minDist = Infinity;
     let closest: Enemy | null = null;
-    getNearbyEnemies(x, y, 1000).forEach((enemy) => {
+    const viewportSearchRadius = Math.hypot(canvasDimensions.width, canvasDimensions.height);
+    getNearbyEnemies(x, y, viewportSearchRadius).forEach((enemy) => {
+      if (!isWithinPlayerViewport(enemy.x, enemy.y, enemy.radius)) return;
       const dist = Math.hypot(enemy.x - x, enemy.y - y);
       if (dist < minDist) {
         minDist = dist;
@@ -1259,7 +1281,8 @@ export default function GameCanvas({
 
       // Bound check or distance check from player to prevent memory leaks
       const distFromPlayer = Math.hypot(b.x - stats.playerX, b.y - stats.playerY);
-      const outOfBounds = distFromPlayer > 1200 || b.x < -200 || b.x > WORLD_WIDTH + 200 || b.y < -200 || b.y > WORLD_HEIGHT + 200;
+      const playerAttackOutOfView = b.type !== 'enemy' && !isWithinPlayerViewport(b.x, b.y, 32);
+      const outOfBounds = playerAttackOutOfView || distFromPlayer > 1200 || b.x < -200 || b.x > WORLD_WIDTH + 200 || b.y < -200 || b.y > WORLD_HEIGHT + 200;
       if (outOfBounds) {
         bullets.splice(i, 1);
         continue;
@@ -1534,7 +1557,7 @@ export default function GameCanvas({
 
     if (!enemy.isBoss) {
       const itemRoll = Math.random();
-      const itemKind = itemRoll < 0.002 ? 'bomb' : itemRoll < 0.007 ? 'magnet' : itemRoll < 0.012 ? 'potion' : null;
+      const itemKind = itemRoll < 0.001 ? 'bomb' : itemRoll < 0.0035 ? 'magnet' : itemRoll < 0.006 ? 'potion' : null;
       if (itemKind) {
         gemsRef.current.push({
           x: enemy.x + (Math.random() - 0.5) * 24,
