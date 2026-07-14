@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Character, StageId, Difficulty, UpgradeState, InGameItem } from '../types';
 import { LEVEL_UP_CHOICES, STAGE_DURATION_SECONDS } from '../constants';
+import { getUpgradeGrowthUnits } from '../utils/progression';
 import { Pause, Play, ShieldAlert, Maximize, Minimize, LogOut } from 'lucide-react';
 import LevelUpModal from './LevelUpModal';
 
@@ -349,10 +350,10 @@ export default function GameCanvas({
   // Upgrades stat calculations
   useEffect(() => {
     // Apply permanent upgrades
-    const hpBonus = 1 + upgrades.maxHpLevel * 0.05;
-    const speedBonus = 1 + upgrades.speedLevel * 0.02;
-    const magnetBonus = 1 + upgrades.magnetLevel * 0.06;
-    const dashCooldownReduction = upgrades.dashLevel * 0.04;
+    const hpBonus = 1 + getUpgradeGrowthUnits(upgrades.maxHpLevel) * 0.05;
+    const speedBonus = 1 + getUpgradeGrowthUnits(upgrades.speedLevel) * 0.02;
+    const magnetBonus = 1 + getUpgradeGrowthUnits(upgrades.magnetLevel) * 0.06;
+    const dashCooldownReduction = getUpgradeGrowthUnits(upgrades.dashLevel) * 0.04;
 
     gameStats.current.maxHp = Math.round(character.baseHp * hpBonus);
     gameStats.current.hp = gameStats.current.maxHp;
@@ -1061,7 +1062,7 @@ export default function GameCanvas({
     const lvls = weaponLevelsRef.current;
     const attackPowerLevel = lvls.attack_power || 0;
     const attackSpeedLevel = lvls.attack_speed || 0;
-    const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (attackPowerLevel >= 5 ? 1.75 : 1 + attackPowerLevel * 0.08);
+    const damageMultiplier = (1 + getUpgradeGrowthUnits(upgrades.damageLevel) * 0.04) * (attackPowerLevel >= 5 ? 1.75 : 1 + attackPowerLevel * 0.08);
     const basicAttackSpeedMultiplier = attackSpeedLevel >= 5 ? 2 : 1 + attackSpeedLevel * 0.08;
     const [basicAttack, , skillAttack] = FIELD_BALANCE[stageId][difficulty];
     const levelAttackScale = 1 + 0.08 * Math.max(0, stats.level - 1);
@@ -1374,7 +1375,7 @@ export default function GameCanvas({
   const updateStrikes = (delta: number) => {
     const strikes = strikesRef.current;
     const lvls = weaponLevelsRef.current;
-    const damageMultiplier = (1 + upgrades.damageLevel * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
+        const damageMultiplier = (1 + getUpgradeGrowthUnits(upgrades.damageLevel) * 0.04) * (1 + (lvls.attack_power || 0) * 0.08);
 
     for (let i = strikes.length - 1; i >= 0; i--) {
       const s = strikes[i];
@@ -1860,13 +1861,13 @@ export default function GameCanvas({
       setHudHp(Math.round(gameStats.current.hp));
     }
     if (item.id === 'move_speed') {
-      const permanentSpeedBonus = 1 + upgrades.speedLevel * 0.02;
+      const permanentSpeedBonus = 1 + getUpgradeGrowthUnits(upgrades.speedLevel) * 0.02;
       const moveLevel = weaponLevelsRef.current.move_speed || 0;
       gameStats.current.speed = character.baseSpeed * permanentSpeedBonus * (moveLevel >= 5 ? 1.6 : 1 + moveLevel * 0.08);
     }
     if (item.id === 'dash_boost') {
       const dashLevel = weaponLevelsRef.current.dash_boost || 0;
-      const permanentReduction = upgrades.dashLevel * 0.04;
+      const permanentReduction = getUpgradeGrowthUnits(upgrades.dashLevel) * 0.04;
       const skillReduction = dashLevel >= 5 ? 0.5 : dashLevel * 0.07;
       gameStats.current.dashCooldown = Math.max(900, 3000 * (1 - permanentReduction) * (1 - skillReduction));
     }

@@ -1,6 +1,6 @@
 import { UpgradeState } from '../types';
 import { Shield, Zap, Swords, Magnet, Milestone, Trophy } from 'lucide-react';
-import { getUpgradeCost } from '../utils/progression';
+import { getUpgradeCost, getUpgradeGrowthUnits } from '../utils/progression';
 
 interface UpgradeMenuProps {
   upgrades: UpgradeState;
@@ -106,6 +106,8 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
             const detail = UPGRADE_DETAILS[key];
             const IconComponent = detail.icon;
             const canAfford = points >= cost;
+            const currentBonus = getUpgradeGrowthUnits(currentLevel) * parseFloat(detail.statBonus);
+            const nextBonus = getUpgradeGrowthUnits(currentLevel + 1) * parseFloat(detail.statBonus);
 
             return (
               <div 
@@ -132,9 +134,11 @@ export default function UpgradeMenu({ upgrades, points, onUpgrade, onReset, onCl
                     <p className="text-xs text-slate-400 mt-1 max-w-sm">{detail.description}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className="text-xs font-semibold text-slate-500">{detail.statName} 보너스:</span>
-                      <span className="text-xs font-bold text-emerald-400">{(currentLevel * parseFloat(detail.statBonus)).toFixed(0)}% 적용 중</span>
+                      <span className="text-xs font-bold text-emerald-400">{currentBonus.toFixed(0)}% 적용 중</span>
                       {!isMax && (
-                        <span className="text-xs font-semibold text-cyan-400">→ {((currentLevel + 1) * parseFloat(detail.statBonus)).toFixed(0)}%</span>
+                        <span className={`text-xs font-semibold ${currentLevel === 9 ? 'text-yellow-300 font-black' : 'text-cyan-400'}`}>
+                          → {nextBonus.toFixed(0)}% {currentLevel === 9 && '· 최종 2배 성장'}
+                        </span>
                       )}
                     </div>
                   </div>

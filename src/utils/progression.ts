@@ -20,7 +20,14 @@ export function calculateEarnedPoints(score: number, stageId: StageId, difficult
   return Math.max(1, Math.round(previousFormulaResult * 0.04 * progressionMultiplier));
 }
 
+const UPGRADE_COSTS = [100, 200, 500, 600, 800, 900, 1000, 1500, 2000, 3000] as const;
+
 export function getUpgradeCost(level: number): number {
-  const previousCost = 700 + level * 450 + level * level * 80;
-  return previousCost * 5;
+  const safeLevel = Math.max(0, Math.min(UPGRADE_COSTS.length - 1, Math.floor(level)));
+  return UPGRADE_COSTS[safeLevel];
+}
+
+export function getUpgradeGrowthUnits(level: number): number {
+  const safeLevel = Math.max(0, Math.min(10, Math.floor(level)));
+  return safeLevel < 10 ? safeLevel : 11;
 }
