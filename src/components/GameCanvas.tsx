@@ -383,6 +383,8 @@ export default function GameCanvas({
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const strikesRef = useRef<StrikeArea[]>([]);
   const enemyGridRef = useRef<Map<string, Enemy[]>>(new Map());
+  // Resets for every dash so an enemy can be hit once anywhere along its path.
+  const dashHitEnemyIdsRef = useRef<Set<string>>(new Set());
   // Kept outside React state so the animation stays frame-smooth without UI re-renders.
   const playerMotionRef = useRef<PlayerMotion>({
     visualX: 0,
@@ -533,21 +535,9 @@ export default function GameCanvas({
     // Keep duration unchanged; a 10% speed increase makes the dash travel 10% farther.
     stats.dashVx = dx * stats.speed * 2.75;
     stats.dashVy = dy * stats.speed * 2.75;
+    dashHitEnemyIdsRef.current.clear();
 
-    // A dash is an intentional single-impact move: each nearby enemy is hit once
-    // at activation, then pushed away. The bounded scan only runs on dash input.
-    const dashRange = 96;
-    const dashDamage = Math.round(FIELD_BALANCE[stageId][difficulty][0] * 2.2);
-    for (const enemy of [...enemiesRef.current]) {
-      const distance = Math.hypot(enemy.x - stats.playerX, enemy.y - stats.playerY);
-      if (distance > dashRange + enemy.radius) continue;
-
-      const pushX = distance > 0.001 ? (enemy.x - stats.playerX) / distance : dx;
-      const pushY = distance > 0.001 ? (enemy.y - stats.playerY) / distance : dy;
-      enemy.x += pushX * 72;
-      enemy.y += pushY * 72;
-      dealDamageToEnemy(enemy, dashDamage, '돌진 충격', enemy.x, enemy.y);
-    }
+    applyDashImpact(dx, dy);
 
     // Create dash particles trail
     for (let i = 0; i < 15; i++) {
@@ -564,6 +554,24 @@ export default function GameCanvas({
     }
 
     setHudDashReady(false);
+  };
+
+  const applyDashImpact = (fallbackDx: number, fallbackDy: number) => {
+    const stats = gameStats.current;
+    const dashRange = 96;
+    const dashDamage = Math.round(FIELD_BALANCE[stageId][difficulty][0] * 2.2);
+    for (const enemy of [...enemiesRef.current]) {
+      if (dashHitEnemyIdsRef.current.has(enemy.id)) continue;
+      const distance = Math.hypot(enemy.x - stats.playerX, enemy.y - stats.playerY);
+      if (distance > dashRange + enemy.radius) continue;
+
+      dashHitEnemyIdsRef.current.add(enemy.id);
+      const pushX = distance > 0.001 ? (enemy.x - stats.playerX) / distance : fallbackDx;
+      const pushY = distance > 0.001 ? (enemy.y - stats.playerY) / distance : fallbackDy;
+      enemy.x += pushX * 72;
+      enemy.y += pushY * 72;
+      dealDamageToEnemy(enemy, dashDamage, '돌진 충격', enemy.x, enemy.y);
+    }
   };
 
   // Touch controls handling (Joystick & Two-finger Dash) with native multi-touch tracking
@@ -895,6 +903,8 @@ export default function GameCanvas({
               // Move player at warp speed
               stats.playerX += stats.dashVx * delta * 60;
               stats.playerY += stats.dashVy * delta * 60;
+              const dashSpeed = Math.hypot(stats.dashVx, stats.dashVy) || 1;
+              applyDashImpact(stats.dashVx / dashSpeed, stats.dashVy / dashSpeed);
               
               // Spawn trail particles
               if (Math.random() < 0.5) {
