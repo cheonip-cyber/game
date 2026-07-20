@@ -141,6 +141,14 @@ interface StrikeArea {
 
 type PlayerFacing = 'down' | 'left' | 'right' | 'up';
 
+interface PlayerMotion {
+  visualX: number;
+  visualY: number;
+  bobPhase: number;
+  attackUntil: number;
+  hurtUntil: number;
+}
+
 function createFloorTile(image: HTMLImageElement, stageId: StageId, difficulty: Difficulty): HTMLCanvasElement {
   const size = 512;
   const tile = document.createElement('canvas');
@@ -235,7 +243,6 @@ export default function GameCanvas({
   const floorTileRef = useRef<HTMLCanvasElement | null>(null);
   const floorPatternRef = useRef<CanvasPattern | null>(null);
   const playerFacingRef = useRef<PlayerFacing>('down');
-  const playerMotionRef = useRef({ moving: false, vx: 0, vy: 0 });
 
   const timeMultiplier = 1;
 
@@ -375,6 +382,14 @@ export default function GameCanvas({
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const strikesRef = useRef<StrikeArea[]>([]);
   const enemyGridRef = useRef<Map<string, Enemy[]>>(new Map());
+  // Kept outside React state so the animation stays frame-smooth without UI re-renders.
+  const playerMotionRef = useRef<PlayerMotion>({
+    visualX: 0,
+    visualY: 0,
+    bobPhase: 0,
+    attackUntil: 0,
+    hurtUntil: 0,
+  });
 
   const rebuildEnemyGrid = () => {
     const grid = enemyGridRef.current;
@@ -515,6 +530,21 @@ export default function GameCanvas({
     stats.dashEndTime = now + 200; // 0.2 seconds dash duration
     stats.dashVx = dx * stats.speed * 2.5;
     stats.dashVy = dy * stats.speed * 2.5;
+
+    // A dash is an intentional single-impact move: each nearby enemy is hit once
+    // at activation, then pushed away. The bounded scan only runs on dash input.
+    const dashRange = 96;
+    const dashDamage = Math.round(FIELD_BALANCE[stageId][difficulty][0] * 2.2);
+    for (const enemy of [...enemiesRef.current]) {
+      const distance = Math.hypot(enemy.x - stats.playerX, enemy.y - stats.playerY);
+      if (distance > dashRange + enemy.radius) continue;
+
+      const pushX = distance > 0.001 ? (enemy.x - stats.playerX) / distance : dx;
+      const pushY = distance > 0.001 ? (enemy.y - stats.playerY) / distance : dy;
+      enemy.x += pushX * 72;
+      enemy.y += pushY * 72;
+      dealDamageToEnemy(enemy, dashDamage, '돌진 충격', enemy.x, enemy.y);
+    }
 
     // Create dash particles trail
     for (let i = 0; i < 15; i++) {
@@ -856,11 +886,6 @@ export default function GameCanvas({
 
           // Dash runtime logic
           if (stats.isDashing) {
-            playerMotionRef.current = {
-              moving: true,
-              vx: stats.dashVx,
-              vy: stats.dashVy,
-            };
             if (now > stats.dashEndTime) {
               stats.isDashing = false;
             } else {
@@ -888,7 +913,6 @@ export default function GameCanvas({
           if (!stats.isDashing) {
             let moveX = 0;
             let moveY = 0;
-            playerMotionRef.current = { moving: false, vx: 0, vy: 0 };
 
             // Keyboard input detection
             if (keysPressed.current['w'] || keysPressed.current['arrowup']) moveY = -1;
@@ -911,11 +935,6 @@ export default function GameCanvas({
             // Apply movement with normalize to prevent diagonal warp speed
             if (moveX !== 0 || moveY !== 0) {
               const len = Math.sqrt(moveX * moveX + moveY * moveY);
-              playerMotionRef.current = {
-                moving: true,
-                vx: moveX / len,
-                vy: moveY / len,
-              };
               playerFacingRef.current = Math.abs(moveX) > Math.abs(moveY)
                 ? moveX < 0 ? 'left' : 'right'
                 : moveY < 0 ? 'up' : 'down';
@@ -927,6 +946,19 @@ export default function GameCanvas({
           // Keep player bounded in the virtual scrolling arena
           stats.playerX = Math.max(stats.playerRadius, Math.min(WORLD_WIDTH - stats.playerRadius, stats.playerX));
           stats.playerY = Math.max(stats.playerRadius, Math.min(WORLD_HEIGHT - stats.playerRadius, stats.playerY));
+
+          // Render-only easing gives all selectable heroes smooth starts/stops
+          // while simulation and collisions keep using exact positions.
+          const motion = playerMotionRef.current;
+          if (motion.visualX === 0 && motion.visualY === 0) {
+            motion.visualX = stats.playerX;
+            motion.visualY = stats.playerY;
+          }
+          const visualEase = Math.min(1, delta * 18);
+          const moved = Math.hypot(stats.playerX - motion.visualX, stats.playerY - motion.visualY) > 0.35;
+          motion.visualX += (stats.playerX - motion.visualX) * visualEase;
+          motion.visualY += (stats.playerY - motion.visualY) * visualEase;
+          motion.bobPhase += delta * (moved || stats.isDashing ? 13 : 2.6);
 
           // 4. Level and survival time continuously raise enemy pressure.
           enemySpawnTimer += delta;
@@ -1458,6 +1490,7 @@ export default function GameCanvas({
 
   // Damage calculation + Floating Text indicators
   const dealDamageToEnemy = (enemy: Enemy, baseDamage: number, source: string, hitX: number, hitY: number) => {
+    playerMotionRef.current.attackUntil = Date.now() + 110;
     // Critical strike chance
     const criticalLevel = weaponLevelsRef.current.critical_milk || 0;
     const critChance = criticalLevel >= 5 ? 0.5 : 0.1 + criticalLevel * 0.06;
@@ -1611,6 +1644,7 @@ export default function GameCanvas({
     const finalAmount = Math.max(1, Math.round(amount * (1 - defenseReduction) * (1 - badgeReduction)));
 
     stats.hp -= finalAmount;
+    playerMotionRef.current.hurtUntil = Date.now() + 180;
     setHudHp(Math.round(stats.hp));
 
     // Screen Shake or flash particles around player
@@ -2273,41 +2307,25 @@ export default function GameCanvas({
     }
 
     // 6. Draw Player (모범생)
+    const motion = playerMotionRef.current;
+    const renderNow = Date.now();
+    const heroScreenX = motion.visualX || stats.playerX;
+    const heroScreenY = motion.visualY || stats.playerY;
+    const isAttacking = renderNow < motion.attackUntil;
+    const isHurt = renderNow < motion.hurtUntil;
+    const movementBob = Math.sin(motion.bobPhase) * (stats.isDashing ? 4 : 2.2);
+
     ctx.save();
     // Shield Magnet circle overlay
     ctx.beginPath();
-    ctx.arc(stats.playerX - cameraX, stats.playerY - cameraY, stats.playerRadius + (stats.isDashing ? 12 : 6), 0, Math.PI * 2);
-    ctx.strokeStyle = stats.isDashing ? '#ffffff' : `${character.imageColor}30`;
+    ctx.arc(heroScreenX - cameraX, heroScreenY - cameraY, stats.playerRadius + (stats.isDashing ? 12 : 6), 0, Math.PI * 2);
+    ctx.strokeStyle = isHurt ? '#fb7185' : stats.isDashing ? '#ffffff' : `${character.imageColor}30`;
     ctx.lineWidth = stats.isDashing ? 3 : 1;
     ctx.stroke();
 
     const heroImage = heroImageRef.current;
-    const playerScreenX = stats.playerX - cameraX;
-    const playerScreenY = stats.playerY - cameraY;
-    const motion = playerMotionRef.current;
-    const animationTime = performance.now();
-    const stepPhase = animationTime / (stats.isDashing ? 55 : 105);
-    const bob = motion.moving ? Math.sin(stepPhase) * 3 : Math.sin(animationTime / 420) * 1.2;
-    const squash = motion.moving ? Math.abs(Math.sin(stepPhase)) * 0.035 : Math.sin(animationTime / 520) * 0.012;
-    const lean = stats.isDashing
-      ? Math.max(-0.24, Math.min(0.24, motion.vx * 0.18))
-      : Math.max(-0.1, Math.min(0.1, motion.vx * 0.07));
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(
-      playerScreenX,
-      playerScreenY + 14,
-      stats.isDashing ? 30 : 23,
-      stats.isDashing ? 8 : 6,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fillStyle = stats.isDashing ? 'rgba(103, 232, 249, 0.28)' : 'rgba(2, 6, 23, 0.42)';
-    ctx.fill();
-    ctx.restore();
-
+    const playerScreenX = heroScreenX - cameraX;
+    const playerScreenY = heroScreenY - cameraY;
     if (heroImage) {
       const heroIndex = character.id === 'haeun' ? 2 : character.id === 'minwoo' ? 1 : 0;
       const sourceWidth = heroImage.width / 3;
@@ -2319,45 +2337,27 @@ export default function GameCanvas({
         up: 3,
       };
       const spriteSize = stats.isDashing ? 76 : 68;
+      const attackSquash = isAttacking ? 1.11 : 1;
+      const hurtSquash = isHurt ? 0.92 : 1;
       ctx.shadowBlur = stats.isDashing ? 28 : 16;
-      ctx.shadowColor = character.imageColor;
-      const drawHero = (x: number, y: number, alpha = 1, scale = 1) => {
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.translate(x, y + bob);
-        ctx.rotate(lean);
-        ctx.scale(1 + squash, 1 - squash);
-        ctx.drawImage(
-          heroImage,
-          heroIndex * sourceWidth,
-          facingRow[playerFacingRef.current] * sourceHeight,
-          sourceWidth,
-          sourceHeight,
-          -spriteSize * scale / 2,
-          -spriteSize * scale * 0.68,
-          spriteSize * scale,
-          spriteSize * scale,
-        );
-        ctx.restore();
-      };
-
-      if (stats.isDashing) {
-        const trailLength = 16;
-        for (let i = 3; i >= 1; i -= 1) {
-          const speed = Math.hypot(motion.vx, motion.vy) || 1;
-          drawHero(
-            playerScreenX - (motion.vx / speed) * trailLength * i,
-            playerScreenY - (motion.vy / speed) * trailLength * i,
-            0.08 * (4 - i),
-            1 - i * 0.035,
-          );
-        }
-      }
-      drawHero(playerScreenX, playerScreenY);
+      ctx.shadowColor = isHurt ? '#fb7185' : character.imageColor;
+      ctx.translate(playerScreenX, playerScreenY + movementBob);
+      ctx.scale(attackSquash * hurtSquash, (isAttacking ? 0.93 : 1.03) * hurtSquash);
+      ctx.drawImage(
+        heroImage,
+        heroIndex * sourceWidth,
+        facingRow[playerFacingRef.current] * sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        -spriteSize / 2,
+        -spriteSize * 0.68,
+        spriteSize,
+        spriteSize,
+      );
     } else {
       ctx.beginPath();
-      ctx.arc(playerScreenX, playerScreenY, stats.playerRadius, 0, Math.PI * 2);
-      ctx.fillStyle = character.imageColor;
+      ctx.arc(playerScreenX, playerScreenY + movementBob, stats.playerRadius * (isAttacking ? 1.1 : 1), 0, Math.PI * 2);
+      ctx.fillStyle = isHurt ? '#fb7185' : character.imageColor;
       ctx.shadowBlur = 15;
       ctx.shadowColor = character.imageColor;
       ctx.fill();
