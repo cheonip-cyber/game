@@ -146,6 +146,7 @@ interface PlayerMotion {
   visualY: number;
   bobPhase: number;
   attackUntil: number;
+  attackStartedAt: number;
   hurtUntil: number;
 }
 
@@ -388,6 +389,7 @@ export default function GameCanvas({
     visualY: 0,
     bobPhase: 0,
     attackUntil: 0,
+    attackStartedAt: 0,
     hurtUntil: 0,
   });
 
@@ -1103,6 +1105,7 @@ export default function GameCanvas({
   // Weapon Firing Mechanism
   const fireWeapons = (now: number) => {
     const stats = gameStats.current;
+    const motion = playerMotionRef.current;
     const lvls = weaponLevelsRef.current;
     const attackPowerLevel = lvls.attack_power || 0;
     const attackSpeedLevel = lvls.attack_speed || 0;
@@ -1122,6 +1125,8 @@ export default function GameCanvas({
         // Target the closest enemy
         const closest = getClosestEnemy(stats.playerX, stats.playerY);
         if (closest) {
+          motion.attackStartedAt = now;
+          motion.attackUntil = now + 180;
           const angle = Math.atan2(closest.y - stats.playerY, closest.x - stats.playerX);
           
           // Shoot bullets based on level
@@ -1490,7 +1495,11 @@ export default function GameCanvas({
 
   // Damage calculation + Floating Text indicators
   const dealDamageToEnemy = (enemy: Enemy, baseDamage: number, source: string, hitX: number, hitY: number) => {
-    playerMotionRef.current.attackUntil = Date.now() + 110;
+    const motion = playerMotionRef.current;
+    if (motion.attackUntil < Date.now()) {
+      motion.attackStartedAt = Date.now();
+      motion.attackUntil = motion.attackStartedAt + 150;
+    }
     // Critical strike chance
     const criticalLevel = weaponLevelsRef.current.critical_milk || 0;
     const critChance = criticalLevel >= 5 ? 0.5 : 0.1 + criticalLevel * 0.06;
@@ -2314,6 +2323,12 @@ export default function GameCanvas({
     const isAttacking = renderNow < motion.attackUntil;
     const isHurt = renderNow < motion.hurtUntil;
     const movementBob = Math.sin(motion.bobPhase) * (stats.isDashing ? 4 : 2.2);
+    const attackProgress = isAttacking
+      ? Math.min(1, (renderNow - motion.attackStartedAt) / 180)
+      : 0;
+    const attackLunge = Math.sin(attackProgress * Math.PI) * 9;
+    const facingAngle: Record<PlayerFacing, number> = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
+    const attackAngle = facingAngle[playerFacingRef.current];
 
     ctx.save();
     // Shield Magnet circle overlay
@@ -2341,8 +2356,20 @@ export default function GameCanvas({
       const hurtSquash = isHurt ? 0.92 : 1;
       ctx.shadowBlur = stats.isDashing ? 28 : 16;
       ctx.shadowColor = isHurt ? '#fb7185' : character.imageColor;
-      ctx.translate(playerScreenX, playerScreenY + movementBob);
-      ctx.scale(attackSquash * hurtSquash, (isAttacking ? 0.93 : 1.03) * hurtSquash);
+      ctx.translate(
+        playerScreenX + Math.cos(attackAngle) * attackLunge,
+        playerScreenY + movementBob + Math.sin(attackAngle) * attackLunge,
+      );
+      if (isAttacking) {
+        ctx.save();
+        ctx.rotate(attackAngle);
+        ctx.globalAlpha = 0.5 * (1 - attackProgress);
+        ctx.fillStyle = character.imageColor;
+        ctx.shadowBlur = 18;
+        ctx.fillRect(12, -5, 22, 10);
+        ctx.restore();
+      }
+      ctx.scale(attackSquash * hurtSquash, (isAttacking ? 0.9 : 1.03) * hurtSquash);
       ctx.drawImage(
         heroImage,
         heroIndex * sourceWidth,
