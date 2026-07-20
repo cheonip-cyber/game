@@ -530,8 +530,9 @@ export default function GameCanvas({
     stats.isDashing = true;
     stats.lastDashTime = now;
     stats.dashEndTime = now + 200; // 0.2 seconds dash duration
-    stats.dashVx = dx * stats.speed * 2.5;
-    stats.dashVy = dy * stats.speed * 2.5;
+    // Keep duration unchanged; a 10% speed increase makes the dash travel 10% farther.
+    stats.dashVx = dx * stats.speed * 2.75;
+    stats.dashVy = dy * stats.speed * 2.75;
 
     // A dash is an intentional single-impact move: each nearby enemy is hit once
     // at activation, then pushed away. The bounded scan only runs on dash input.
